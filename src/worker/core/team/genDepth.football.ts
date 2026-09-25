@@ -57,6 +57,12 @@ const WR_ROLES: FunctionalRole[] = [
 	"WR_SLOT",
 ];
 
+const CB_ROLES: FunctionalRole[] = [
+	"CB_OUTSIDE",
+	"CB_OUTSIDE",
+	"CB_SLOT",
+];
+
 const S_ROLES: FunctionalRole[] = [
 	"FS",
 	"SS",
@@ -342,6 +348,28 @@ const genWrDepth = (
 	);
 };
 
+const genCbDepth = (
+	players: PlayerFiltered[],
+): number[] => {
+	/*
+	 * First three:
+	 *
+	 * Outside CB
+	 * Outside CB
+	 * Slot CB
+	 *
+	 * Two-CB formations use the two outside corners.
+	 *
+	 * Three-CB formations add the slot corner.
+	 */
+	return genFunctionalRoleDepth(
+		players,
+		"CB",
+		CB_ROLES,
+		10,
+	);
+};
+
 const genSafetyDepth = (
 	players: PlayerFiltered[],
 ): number[] => {
@@ -533,6 +561,13 @@ const genDepth = async (
 		) {
 			depth.WR =
 				genWrDepth(
+					players,
+				);
+		} else if (
+			pos2 === "CB"
+		) {
+			depth.CB =
+				genCbDepth(
 					players,
 				);
 		} else if (
