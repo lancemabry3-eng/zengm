@@ -29,6 +29,47 @@ export type PenaltyPlayType =
 	| "pass"
 	| "run";
 
+/*
+ * Core offensive play concepts.
+ *
+ * These are intentionally broader than individual named plays.
+ * The simulation can use them to alter personnel preference,
+ * blocking behavior, target depth, pressure, rushing lanes,
+ * and play outcomes without having to simulate every route
+ * and assignment individually.
+ */
+export type RunConcept =
+	| "INSIDE_ZONE"
+	| "OUTSIDE_ZONE"
+	| "POWER"
+	| "COUNTER"
+	| "DRAW";
+
+export type PassConcept =
+	| "QUICK_GAME"
+	| "INTERMEDIATE"
+	| "DEEP_SHOT"
+	| "PLAY_ACTION"
+	| "SCREEN";
+
+/*
+ * A normal offensive snap has both a play family and a
+ * specific concept.
+ *
+ * Keeping the family attached makes the object safe to narrow
+ * in TypeScript and avoids accidentally using a run concept
+ * inside passing logic or vice versa.
+ */
+export type OffensivePlayConcept =
+	| {
+			type: "run";
+			concept: RunConcept;
+	  }
+	| {
+			type: "pass";
+			concept: PassConcept;
+	  };
+
 export type PlayerGameSim = {
 	id: number;
 	name: string;
