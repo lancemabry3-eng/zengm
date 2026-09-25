@@ -2,11 +2,15 @@ import { POSITIONS } from "../../../common/constants.football.ts";
 import type { Position } from "../../../common/types.football.ts";
 import helpers from "../../util/helpers.ts";
 import type { FunctionalRole } from "../player/roleOvr.football.ts";
-import { getDefensiveRoleOrder } from "./formations.ts";
+import {
+	DEFENSIVE_ROLES_BY_FRONT,
+	getDefensiveRoleOrder,
+} from "./formations.ts";
 import type {
 	Formation,
 	PlayerGameSim,
 	PlayersOnField,
+	TeamGameSim,
 } from "./types.ts";
 
 /*
@@ -217,6 +221,133 @@ export const getRoleBasedDepth = (
 	);
 
 	return reorderedDepth;
+};
+
+type BaseDefensiveFront =
+	| "BASE_3_4"
+	| "BASE_4_3";
+
+const baseDefensiveFrontCache =
+	new WeakMap<
+		TeamGameSim,
+		BaseDefensiveFront
+	>();
+
+const getDefensiveFrontFitScore = (
+	team: TeamGameSim,
+	front: BaseDefensiveFront,
+): number => {
+	let totalScore = 0;
+
+	for (
+		const pos of
+			["DL", "LB"] as const
+	) {
+		const roles =
+			DEFENSIVE_ROLES_BY_FRONT[
+				front
+			][pos];
+
+		const depth =
+			team.depth[pos];
+
+		if (
+			roles === undefined ||
+			depth === undefined ||
+			depth.length <
+				roles.length
+		) {
+			return -Infinity;
+		}
+
+		const orderedDepth =
+			getRoleBasedDepth(
+				depth,
+				roles,
+			);
+
+		for (
+			let i = 0;
+			i < roles.length;
+			i++
+		) {
+			const role =
+				roles[i]!;
+
+			const p =
+				orderedDepth[i];
+
+			const score =
+				p?.roleOvrs?.[
+					role
+				];
+
+			if (
+				score ===
+				undefined
+			) {
+				return -Infinity;
+			}
+
+			totalScore +=
+				score;
+		}
+	}
+
+	return totalScore;
+};
+
+/*
+ * Infer a team's preferred base defensive front from the
+ * functional-role talent available in its front seven.
+ *
+ * Both candidate fronts use seven defenders, so their
+ * aggregate role-fit scores are directly comparable.
+ *
+ * The result is cached for the entire game.
+ *
+ * Injuries can change who actually plays, but they do not
+ * cause the defense to reinvent its base scheme every snap.
+ *
+ * Coaching preferences can override this later when the
+ * coaching system is implemented.
+ */
+export const getBaseDefensiveFront = (
+	team: TeamGameSim,
+): BaseDefensiveFront => {
+	const cached =
+		baseDefensiveFrontCache.get(
+			team,
+		);
+
+	if (cached) {
+		return cached;
+	}
+
+	const score34 =
+		getDefensiveFrontFitScore(
+			team,
+			"BASE_3_4",
+		);
+
+	const score43 =
+		getDefensiveFrontFitScore(
+			team,
+			"BASE_4_3",
+		);
+
+	const front:
+		BaseDefensiveFront =
+			score34 > score43
+				? "BASE_3_4"
+				: "BASE_4_3";
+
+	baseDefensiveFrontCache.set(
+		team,
+		front,
+	);
+
+	return front;
 };
 
 /*
