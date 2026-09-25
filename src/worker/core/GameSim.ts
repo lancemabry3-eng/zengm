@@ -2,6 +2,7 @@ import { FATIGUE_POS } from "../../common/constants.football.ts";
 import { choice, randInt, truncGauss } from "../../common/random.ts";
 import { bySport } from "../../common/sportFunctions.ts";
 import { g, helpers } from "../util/index.ts";
+import type { FunctionalRole } from "./player/roleOvr.football.ts";
 import GameSimBaseball from "./GameSim.baseball/index.ts";
 import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
@@ -14,7 +15,10 @@ import GameSimFootball from "./GameSim.football/index.ts";
 import type {
 	Formation,
 	OffensivePersonnel,
+	OffensivePlayConcept,
+	PassConcept,
 	PlayerGameSim,
+	RunConcept,
 	TeamGameSim,
 } from "./GameSim.football/types.ts";
 import GameSimHockey from "./GameSim.hockey/index.ts";
@@ -100,14 +104,6 @@ const getPersonnelSituationWeight = (
 ): number => {
 	let weight: number;
 
-	/*
-	 * Base package tendencies.
-	 *
-	 * 11 is the primary passing package.
-	 * 12 is balanced and flexible.
-	 * 21 leans toward the run game.
-	 * 22 is the heaviest specialty grouping.
-	 */
 	if (playType === "pass") {
 		if (personnel === "11") {
 			weight = 5.5;
@@ -130,13 +126,6 @@ const getPersonnelSituationWeight = (
 		}
 	}
 
-	/*
-	 * Short yardage invites heavier personnel.
-	 *
-	 * 12 gets a modest bump because the second TE adds
-	 * blocking without sacrificing as much receiving threat
-	 * as 21 or 22.
-	 */
 	if (toGo <= 2) {
 		if (personnel === "11") {
 			weight *= 0.75;
@@ -149,11 +138,6 @@ const getPersonnelSituationWeight = (
 		}
 	}
 
-	/*
-	 * Longer yardage pushes the offense toward spread skill
-	 * personnel, but 12 can remain viable because its second
-	 * TE may still be a legitimate receiver.
-	 */
 	if (toGo >= 7) {
 		if (personnel === "11") {
 			weight *= 1.55;
@@ -166,12 +150,6 @@ const getPersonnelSituationWeight = (
 		}
 	}
 
-	/*
-	 * Obvious passing downs lean further toward 11.
-	 *
-	 * 12 remains a useful changeup when a team has enough TE
-	 * receiving talent to punish lighter defensive packages.
-	 */
 	if (
 		down >= 3 &&
 		toGo >= 5
@@ -187,13 +165,6 @@ const getPersonnelSituationWeight = (
 		}
 	}
 
-	/*
-	 * Inside the opponent's five, power personnel becomes
-	 * significantly more attractive.
-	 *
-	 * 12 receives a meaningful bump while still remaining the
-	 * most balanced heavy-ish package.
-	 */
 	if (scrimmage >= 95) {
 		if (personnel === "11") {
 			weight *= 0.7;
@@ -304,6 +275,857 @@ const chooseOffensiveFormation = (
 	);
 };
 
+const RUN_CONCEPTS: RunConcept[] = [
+	"INSIDE_ZONE",
+	"OUTSIDE_ZONE",
+	"POWER",
+	"COUNTER",
+	"DRAW",
+];
+
+const PASS_CONCEPTS: PassConcept[] = [
+	"QUICK_GAME",
+	"INTERMEDIATE",
+	"DEEP_SHOT",
+	"PLAY_ACTION",
+	"SCREEN",
+];
+
+const averageDefined = (
+	values: Array<
+		number | undefined
+	>,
+): number | undefined => {
+	const defined =
+		values.filter(
+			(
+				value,
+			): value is number =>
+				value !==
+				undefined,
+		);
+
+	if (defined.length === 0) {
+		return undefined;
+	}
+
+	return (
+		defined.reduce(
+			(sum, value) =>
+				sum + value,
+			0,
+		) / defined.length
+	);
+};
+
+const getBestRoleScore = (
+	team: TeamGameSim,
+	pos: "QB" | "RB" | "WR" | "TE" | "OL",
+	roles: FunctionalRole[],
+): number | undefined => {
+	let best:
+		| number
+		| undefined;
+
+	for (
+		const p of
+			team.depth[pos]
+	) {
+		for (const role of roles) {
+			const score =
+				p.roleOvrs?.[
+					role
+				];
+
+			if (
+				score !==
+					undefined &&
+				(best ===
+					undefined ||
+					score > best)
+			) {
+				best = score;
+			}
+		}
+	}
+
+	return best;
+};
+
+const getTeamCompositeScore = (
+	team: TeamGameSim,
+	rating: string,
+): number | undefined => {
+	const value =
+		team.compositeRating?.[
+			rating
+		];
+
+	if (
+		typeof value !==
+		"number"
+	) {
+		return undefined;
+	}
+
+	return helpers.bound(
+		value * 100,
+		0,
+		100,
+	);
+};
+
+const getRunConceptRosterScore = (
+	team: TeamGameSim,
+	concept: RunConcept,
+): number | undefined => {
+	if (
+		concept ===
+		"INSIDE_ZONE"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"RB",
+				["RB_FEATURE"],
+			),
+			getBestRoleScore(
+				team,
+				"OL",
+				[
+					"LG",
+					"C",
+					"RG",
+				],
+			),
+			getTeamCompositeScore(
+				team,
+				"runBlocking",
+			),
+		]);
+	}
+
+	if (
+		concept ===
+		"OUTSIDE_ZONE"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"RB",
+				[
+					"RB_FEATURE",
+					"RB_RECEIVING",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"OL",
+				["LT", "RT"],
+			),
+			getTeamCompositeScore(
+				team,
+				"rushing",
+			),
+		]);
+	}
+
+	if (
+		concept === "POWER"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"RB",
+				[
+					"RB_POWER",
+					"RB_SHORT_YARDAGE",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"OL",
+				[
+					"LG",
+					"C",
+					"RG",
+				],
+			),
+			getTeamCompositeScore(
+				team,
+				"runBlocking",
+			),
+		]);
+	}
+
+	if (
+		concept === "COUNTER"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"RB",
+				[
+					"RB_FEATURE",
+					"RB_POWER",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"OL",
+				["LG", "RG"],
+			),
+			getTeamCompositeScore(
+				team,
+				"rushing",
+			),
+		]);
+	}
+
+	return averageDefined([
+		getBestRoleScore(
+			team,
+			"RB",
+			[
+				"RB_THIRD_DOWN",
+				"RB_RECEIVING",
+			],
+		),
+		getBestRoleScore(
+			team,
+			"OL",
+			["LT", "RT"],
+		),
+		getTeamCompositeScore(
+			team,
+			"rushing",
+		),
+	]);
+};
+
+const getPassConceptRosterScore = (
+	team: TeamGameSim,
+	concept: PassConcept,
+): number | undefined => {
+	if (
+		concept ===
+		"QUICK_GAME"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"QB",
+				[
+					"QB_POCKET",
+					"QB_CREATOR",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"WR",
+				[
+					"WR_SLOT",
+					"WR_POSSESSION",
+				],
+			),
+			getTeamCompositeScore(
+				team,
+				"passingAccuracy",
+			),
+		]);
+	}
+
+	if (
+		concept ===
+		"INTERMEDIATE"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"QB",
+				["QB_POCKET"],
+			),
+			getBestRoleScore(
+				team,
+				"WR",
+				[
+					"WR_X",
+					"WR_Z",
+					"WR_POSSESSION",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"TE",
+				["TE_RECEIVING"],
+			),
+			getTeamCompositeScore(
+				team,
+				"passingVision",
+			),
+		]);
+	}
+
+	if (
+		concept ===
+		"DEEP_SHOT"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"QB",
+				[
+					"QB_POCKET",
+					"QB_CREATOR",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"WR",
+				["WR_DEEP_THREAT"],
+			),
+			getTeamCompositeScore(
+				team,
+				"passingDeep",
+			),
+		]);
+	}
+
+	if (
+		concept ===
+		"PLAY_ACTION"
+	) {
+		return averageDefined([
+			getBestRoleScore(
+				team,
+				"QB",
+				[
+					"QB_POCKET",
+					"QB_CREATOR",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"RB",
+				[
+					"RB_FEATURE",
+					"RB_POWER",
+				],
+			),
+			getBestRoleScore(
+				team,
+				"TE",
+				["TE_RECEIVING"],
+			),
+			getTeamCompositeScore(
+				team,
+				"passingVision",
+			),
+		]);
+	}
+
+	return averageDefined([
+		getBestRoleScore(
+			team,
+			"QB",
+			[
+				"QB_CREATOR",
+				"QB_DUAL_THREAT",
+			],
+		),
+		getBestRoleScore(
+			team,
+			"RB",
+			[
+				"RB_RECEIVING",
+				"RB_THIRD_DOWN",
+			],
+		),
+		getBestRoleScore(
+			team,
+			"WR",
+			["WR_SLOT"],
+		),
+		getTeamCompositeScore(
+			team,
+			"passingAccuracy",
+		),
+	]);
+};
+
+const getConceptRosterFactor = (
+	score: number | undefined,
+): number => {
+	if (score === undefined) {
+		return 1;
+	}
+
+	return helpers.bound(
+		1 +
+			(score - 50) /
+				150,
+		0.8,
+		1.2,
+	);
+};
+
+const getRunConceptSituationWeight = (
+	concept: RunConcept,
+	personnel: OffensivePersonnel,
+	down: number,
+	toGo: number,
+	scrimmage: number,
+): number => {
+	let weight =
+		concept === "INSIDE_ZONE"
+			? 4.5
+			: concept ===
+				  "OUTSIDE_ZONE"
+				? 3.5
+				: concept === "POWER"
+					? 3
+					: concept ===
+						  "COUNTER"
+						? 2.5
+						: 1.2;
+
+	if (personnel === "11") {
+		if (
+			concept ===
+			"OUTSIDE_ZONE"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept === "DRAW"
+		) {
+			weight *= 1.5;
+		} else if (
+			concept === "POWER"
+		) {
+			weight *= 0.75;
+		}
+	} else if (
+		personnel === "12"
+	) {
+		if (
+			concept ===
+			"INSIDE_ZONE"
+		) {
+			weight *= 1.1;
+		} else if (
+			concept === "POWER"
+		) {
+			weight *= 1.15;
+		} else if (
+			concept === "DRAW"
+		) {
+			weight *= 0.8;
+		}
+	} else if (
+		personnel === "21"
+	) {
+		if (
+			concept ===
+			"INSIDE_ZONE"
+		) {
+			weight *= 1.15;
+		} else if (
+			concept === "POWER"
+		) {
+			weight *= 1.35;
+		} else if (
+			concept === "COUNTER"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept === "DRAW"
+		) {
+			weight *= 0.65;
+		}
+	} else {
+		if (
+			concept === "POWER"
+		) {
+			weight *= 1.6;
+		} else if (
+			concept ===
+			"INSIDE_ZONE"
+		) {
+			weight *= 1.25;
+		} else if (
+			concept === "COUNTER"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept ===
+			"OUTSIDE_ZONE"
+		) {
+			weight *= 0.7;
+		} else {
+			weight *= 0.4;
+		}
+	}
+
+	if (toGo <= 2) {
+		if (
+			concept === "POWER"
+		) {
+			weight *= 2;
+		} else if (
+			concept ===
+			"INSIDE_ZONE"
+		) {
+			weight *= 1.35;
+		} else if (
+			concept === "COUNTER"
+		) {
+			weight *= 1.15;
+		} else if (
+			concept === "DRAW"
+		) {
+			weight *= 0.4;
+		}
+	}
+
+	if (toGo >= 7) {
+		if (
+			concept === "DRAW"
+		) {
+			weight *= 2;
+		} else if (
+			concept ===
+			"OUTSIDE_ZONE"
+		) {
+			weight *= 1.1;
+		} else if (
+			concept === "POWER"
+		) {
+			weight *= 0.6;
+		} else if (
+			concept === "COUNTER"
+		) {
+			weight *= 0.75;
+		}
+	}
+
+	if (
+		down >= 3 &&
+		toGo >= 5
+	) {
+		if (
+			concept === "DRAW"
+		) {
+			weight *= 1.8;
+		} else if (
+			concept ===
+			"OUTSIDE_ZONE"
+		) {
+			weight *= 1.1;
+		} else if (
+			concept === "POWER"
+		) {
+			weight *= 0.5;
+		}
+	}
+
+	if (scrimmage >= 95) {
+		if (
+			concept === "POWER"
+		) {
+			weight *= 2.2;
+		} else if (
+			concept ===
+			"INSIDE_ZONE"
+		) {
+			weight *= 1.5;
+		} else if (
+			concept === "COUNTER"
+		) {
+			weight *= 1.1;
+		} else if (
+			concept ===
+			"OUTSIDE_ZONE"
+		) {
+			weight *= 0.7;
+		} else {
+			weight *= 0.3;
+		}
+	}
+
+	return weight;
+};
+
+const getPassConceptSituationWeight = (
+	concept: PassConcept,
+	personnel: OffensivePersonnel,
+	down: number,
+	toGo: number,
+	scrimmage: number,
+): number => {
+	let weight =
+		concept === "QUICK_GAME"
+			? 4
+			: concept ===
+				  "INTERMEDIATE"
+				? 4.5
+				: concept ===
+					  "DEEP_SHOT"
+					? 2.3
+					: concept ===
+						  "PLAY_ACTION"
+						? 2.5
+						: 1.5;
+
+	if (personnel === "11") {
+		if (
+			concept ===
+			"QUICK_GAME"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept ===
+			"INTERMEDIATE"
+		) {
+			weight *= 1.15;
+		} else if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 1.3;
+		} else if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 0.85;
+		} else {
+			weight *= 1.15;
+		}
+	} else if (
+		personnel === "12"
+	) {
+		if (
+			concept ===
+			"INTERMEDIATE"
+		) {
+			weight *= 1.1;
+		} else if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 1.35;
+		} else if (
+			concept === "SCREEN"
+		) {
+			weight *= 0.8;
+		}
+	} else if (
+		personnel === "21"
+	) {
+		if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 1.5;
+		} else if (
+			concept === "SCREEN"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 0.75;
+		} else if (
+			concept ===
+			"QUICK_GAME"
+		) {
+			weight *= 0.85;
+		}
+	} else {
+		if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 1.7;
+		} else if (
+			concept ===
+			"INTERMEDIATE"
+		) {
+			weight *= 0.8;
+		} else if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 0.5;
+		} else if (
+			concept ===
+			"QUICK_GAME"
+		) {
+			weight *= 0.7;
+		} else {
+			weight *= 0.75;
+		}
+	}
+
+	if (toGo <= 3) {
+		if (
+			concept ===
+			"QUICK_GAME"
+		) {
+			weight *= 1.4;
+		} else if (
+			concept === "SCREEN"
+		) {
+			weight *= 1.3;
+		} else if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 0.6;
+		} else if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 1.1;
+		}
+	}
+
+	if (toGo >= 10) {
+		if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 1.5;
+		} else if (
+			concept ===
+			"INTERMEDIATE"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept === "SCREEN"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept ===
+			"QUICK_GAME"
+		) {
+			weight *= 0.7;
+		} else {
+			weight *= 0.8;
+		}
+	}
+
+	if (
+		down >= 3 &&
+		toGo >= 5
+	) {
+		if (
+			concept ===
+			"INTERMEDIATE"
+		) {
+			weight *= 1.25;
+		} else if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 1.3;
+		} else if (
+			concept === "SCREEN"
+		) {
+			weight *= 0.9;
+		} else if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 0.65;
+		}
+	}
+
+	if (scrimmage >= 95) {
+		if (
+			concept ===
+			"QUICK_GAME"
+		) {
+			weight *= 1.2;
+		} else if (
+			concept ===
+			"PLAY_ACTION"
+		) {
+			weight *= 1.5;
+		} else if (
+			concept ===
+			"DEEP_SHOT"
+		) {
+			weight *= 0.5;
+		} else if (
+			concept === "SCREEN"
+		) {
+			weight *= 0.8;
+		}
+	}
+
+	return weight;
+};
+
+const chooseOffensivePlayConcept = (
+	team: TeamGameSim,
+	playType: "run" | "pass",
+	personnel: OffensivePersonnel,
+	down: number,
+	toGo: number,
+	scrimmage: number,
+): OffensivePlayConcept => {
+	if (playType === "run") {
+		const concept =
+			choice(
+				RUN_CONCEPTS,
+				(candidate) =>
+					getRunConceptSituationWeight(
+						candidate,
+						personnel,
+						down,
+						toGo,
+						scrimmage,
+					) *
+					getConceptRosterFactor(
+						getRunConceptRosterScore(
+							team,
+							candidate,
+						),
+					),
+			);
+
+		return {
+			type: "run",
+			concept,
+		};
+	}
+
+	const concept =
+		choice(
+			PASS_CONCEPTS,
+			(candidate) =>
+				getPassConceptSituationWeight(
+					candidate,
+					personnel,
+					down,
+					toGo,
+					scrimmage,
+				) *
+				getConceptRosterFactor(
+					getPassConceptRosterScore(
+						team,
+						candidate,
+					),
+				),
+		);
+
+	return {
+		type: "pass",
+		concept,
+	};
+};
+
 /*
  * Football realism layer.
  *
@@ -313,6 +1135,10 @@ const chooseOffensiveFormation = (
  * schemes can influence who actually takes the field.
  */
 class GameSimFootballRealism extends GameSimFootball {
+	currentOffensivePlayConcept:
+		| OffensivePlayConcept
+		| undefined;
+
 	updatePlayersOnField(
 		playType:
 			| "starters"
@@ -326,17 +1152,12 @@ class GameSimFootballRealism extends GameSimFootball {
 	) {
 		let formation: Formation;
 
+		this.currentOffensivePlayConcept =
+			undefined;
+
 		if (
 			playType === "starters"
 		) {
-			/*
-			 * Record defensive starters from the team's actual
-			 * base front rather than treating nickel as its
-			 * permanent starting defense.
-			 *
-			 * Offense still uses the existing 11-personnel
-			 * starter grouping.
-			 */
 			formation =
 				applyBaseDefensiveFront(
 					formations.normal[
@@ -350,11 +1171,6 @@ class GameSimFootballRealism extends GameSimFootball {
 			playType ===
 			"startersFake"
 		) {
-			/*
-			 * probPass() uses this synthetic look to compare
-			 * pass/run talent. Keep the existing 11-personnel
-			 * versus nickel baseline for that calculation.
-			 */
 			formation =
 				formations.normal[0]!;
 		} else if (
@@ -372,12 +1188,27 @@ class GameSimFootballRealism extends GameSimFootball {
 					this.scrimmage,
 				);
 
-			/*
-			 * 11 personnel forces the defense into nickel.
-			 *
-			 * 12, 21, and 22 personnel are answered by the
-			 * defense's own inferred base 3-4 or 4-3 scheme.
-			 */
+			const personnel =
+				offensiveFormation
+					.offensivePersonnel;
+
+			if (
+				personnel !==
+				undefined
+			) {
+				this.currentOffensivePlayConcept =
+					chooseOffensivePlayConcept(
+						this.team[
+							this.o
+						],
+						playType,
+						personnel,
+						this.down,
+						this.toGo,
+						this.scrimmage,
+					);
+			}
+
 			formation =
 				getNormalFormation(
 					offensiveFormation,
@@ -469,15 +1300,6 @@ class GameSimFootballRealism extends GameSimFootball {
 					PlayerGameSim[] =
 						[];
 
-				/*
-				 * Preserve the five offensive line slots:
-				 *
-				 * LT
-				 * LG
-				 * C
-				 * RG
-				 * RT
-				 */
 				if (
 					pos === "OL" &&
 					numPlayers === 5 &&
@@ -886,11 +1708,6 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 		}
 
-		/*
-		 * Restore TE pass protection.
-		 *
-		 * Each TE has a 10% chance to remain in protection.
-		 */
 		const te =
 			this.playersOnField[
 				o
