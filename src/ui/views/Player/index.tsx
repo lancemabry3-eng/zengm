@@ -148,7 +148,7 @@ const Player2 = ({
 				</HideableSection>
 			) : null}
 
-			{statTables.map(({ name, onlyShowIf, stats, superCols }) => (
+			
 			{statTables.map(({ name, onlyShowIf, stats, superCols }) => (
 				<StatsTable
 					awardsBySeason={awardsBySeason}
