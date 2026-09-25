@@ -57,6 +57,12 @@ const WR_ROLES: FunctionalRole[] = [
 	"WR_SLOT",
 ];
 
+const S_ROLES: FunctionalRole[] = [
+	"FS",
+	"SS",
+	"BOX_SAFETY",
+];
+
 /*
  * Build a depth chart where the first several players
  * correspond to specific functional roles.
@@ -153,6 +159,7 @@ const genFunctionalRoleDepth = (
 		.sort((a, b) => {
 			const aScores =
 				roleScores.get(a.pid)!;
+
 			const bScores =
 				roleScores.get(b.pid)!;
 
@@ -335,6 +342,30 @@ const genWrDepth = (
 	);
 };
 
+const genSafetyDepth = (
+	players: PlayerFiltered[],
+): number[] => {
+	/*
+	 * First three:
+	 *
+	 * FS
+	 * SS
+	 * Box Safety
+	 *
+	 * Standard two-safety formations use FS and SS.
+	 *
+	 * The Box Safety is kept as the third specialized
+	 * safety for future nickel, dime, and heavy-box
+	 * personnel packages.
+	 */
+	return genFunctionalRoleDepth(
+		players,
+		"S",
+		S_ROLES,
+		8,
+	);
+};
+
 const genDepth = async (
 	playersRaw: Player[],
 	initialDepth: {
@@ -502,6 +533,13 @@ const genDepth = async (
 		) {
 			depth.WR =
 				genWrDepth(
+					players,
+				);
+		} else if (
+			pos2 === "S"
+		) {
+			depth.S =
+				genSafetyDepth(
 					players,
 				);
 		} else {
