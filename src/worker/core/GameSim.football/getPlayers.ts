@@ -2,7 +2,33 @@ import { POSITIONS } from "../../../common/constants.football.ts";
 import type { Position } from "../../../common/types.football.ts";
 import helpers from "../../util/helpers.ts";
 import type { FunctionalRole } from "../player/roleOvr.football.ts";
-import type { PlayerGameSim, PlayersOnField } from "./types.ts";
+import { getDefensiveRoleOrder } from "./formations.ts";
+import type {
+	Formation,
+	PlayerGameSim,
+	PlayersOnField,
+} from "./types.ts";
+
+/*
+ * Each positional depth array remains stable throughout a
+ * game simulation.
+ *
+ * Functional role ratings also remain stable during the game,
+ * so role-based depth orders can safely be cached.
+ *
+ * This prevents the maximum-score assignment search from
+ * running again on every snap.
+ */
+const roleDepthCache = new WeakMap<
+	PlayerGameSim[],
+	Map<string, PlayerGameSim[]>
+>();
+
+const getRoleCacheKey = (
+	roles: FunctionalRole[],
+): string => {
+	return roles.join("|");
+};
 
 /*
  * Reorder a positional depth chart around a specific set
@@ -43,6 +69,34 @@ export const getRoleBasedDepth = (
 		depth.length < roles.length
 	) {
 		return depth;
+	}
+
+	const cacheKey =
+		getRoleCacheKey(roles);
+
+	let cacheForDepth =
+		roleDepthCache.get(depth);
+
+	if (!cacheForDepth) {
+		cacheForDepth =
+			new Map<
+				string,
+				PlayerGameSim[]
+			>();
+
+		roleDepthCache.set(
+			depth,
+			cacheForDepth,
+		);
+	}
+
+	const cached =
+		cacheForDepth.get(
+			cacheKey,
+		);
+
+	if (cached) {
+		return cached;
 	}
 
 	let bestScore = -Infinity;
@@ -124,10 +178,19 @@ export const getRoleBasedDepth = (
 
 	search(0, 0);
 
+	/*
+	 * If a complete role assignment cannot be made,
+	 * preserve the existing depth chart.
+	 */
 	if (
 		bestPlayers.length !==
 		roles.length
 	) {
+		cacheForDepth.set(
+			cacheKey,
+			depth,
+		);
+
 		return depth;
 	}
 
@@ -138,7 +201,7 @@ export const getRoleBasedDepth = (
 			),
 		);
 
-	return [
+	const reorderedDepth = [
 		...bestPlayers,
 		...depth.filter(
 			(p) =>
@@ -147,6 +210,51 @@ export const getRoleBasedDepth = (
 				),
 		),
 	];
+
+	cacheForDepth.set(
+		cacheKey,
+		reorderedDepth,
+	);
+
+	return reorderedDepth;
+};
+
+/*
+ * Return the appropriate positional depth chart for a
+ * specific formation.
+ *
+ * Offense and special teams retain their normal depth order.
+ *
+ * Normal defensive formations use the functional role
+ * blueprint associated with their defensive front.
+ */
+export const getFormationDepth = (
+	depth: PlayerGameSim[],
+	formation: Formation,
+	side: "off" | "def",
+	pos: Position,
+): PlayerGameSim[] => {
+	if (side !== "def") {
+		return depth;
+	}
+
+	const roles =
+		getDefensiveRoleOrder(
+			formation,
+			pos,
+		);
+
+	if (
+		roles === undefined ||
+		roles.length === 0
+	) {
+		return depth;
+	}
+
+	return getRoleBasedDepth(
+		depth,
+		roles,
+	);
 };
 
 const getPlayers = (
