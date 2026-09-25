@@ -205,6 +205,14 @@ const Depth = ({
 				"RP",
 			];
 		}
+	} 	else if (__SPORT === "football" && pos === "OL") {
+		rowLabels = [
+			"LT",
+			"LG",
+			"C",
+			"RG",
+			"RT",
+		];
 	}
 
 	const getIDsToSave = (pids: number[]): number[] => {
@@ -453,7 +461,14 @@ const Depth = ({
 					</div>
 				</>
 			) : null}
-
+   			{__SPORT === "football" && pos === "OL" ? (
+				<div className="alert alert-info d-inline-block">
+					The first five offensive line slots are LT, LG, C, RG, and RT.
+					Auto sort chooses the strongest five-man combination based on
+					each player's functional role ratings. Dragging players between
+					these slots manually changes their assigned offensive line role.
+				</div>
+			) : null}
 			{__SPORT === "hockey" && pos === "F" ? (
 				<div className="alert alert-info d-inline-block">
 					Each line of forwards is made up of one center and two wings. The
