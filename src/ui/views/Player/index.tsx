@@ -26,6 +26,7 @@ const Player2 = ({
 	customMenu,
 	events,
 	feats,
+ functionalRoles,
 	jerseyNumberInfos,
 	leaders,
 	player,
@@ -112,7 +113,42 @@ const Player2 = ({
 				teamURL={teamURL}
 				willingToSign={willingToSign}
 			/>
+   			{__SPORT === "football" &&
+			showRatings &&
+			functionalRoles &&
+			functionalRoles.length > 0 ? (
+				<HideableSection
+					title="Functional Roles"
+					description="How this player's ratings translate to specific football roles."
+				>
+					<div className="row g-2 mb-3">
+						{functionalRoles.map((role, index) => (
+							<div
+								className="col-6 col-md-4 col-lg-3"
+								key={role.role}
+							>
+								<div className="border rounded p-2 h-100">
+									<div className="small text-body-secondary">
+										{role.label}
+									</div>
 
+									<div className="fs-4 fw-bold">
+										{role.ovr}
+									</div>
+
+									{index === 0 ? (
+										<div className="small fw-bold">
+											Best Role
+										</div>
+									) : null}
+								</div>
+							</div>
+						))}
+					</div>
+				</HideableSection>
+			) : null}
+
+			{statTables.map(({ name, onlyShowIf, stats, superCols }) => (
 			{statTables.map(({ name, onlyShowIf, stats, superCols }) => (
 				<StatsTable
 					awardsBySeason={awardsBySeason}
