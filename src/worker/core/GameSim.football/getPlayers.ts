@@ -5,6 +5,7 @@ import type { FunctionalRole } from "../player/roleOvr.football.ts";
 import {
 	DEFENSIVE_ROLES_BY_FRONT,
 	getDefensiveRoleOrder,
+	getOffensiveRoleOrder,
 } from "./formations.ts";
 import type {
 	Formation,
@@ -354,10 +355,14 @@ export const getBaseDefensiveFront = (
  * Return the appropriate positional depth chart for a
  * specific formation.
  *
- * Offense and special teams retain their normal depth order.
+ * Normal offensive formations use the functional role
+ * blueprint associated with their personnel package.
  *
  * Normal defensive formations use the functional role
  * blueprint associated with their defensive front.
+ *
+ * Special-teams formations do not define either identifier,
+ * so they naturally retain their normal depth order.
  */
 export const getFormationDepth = (
 	depth: PlayerGameSim[],
@@ -365,15 +370,16 @@ export const getFormationDepth = (
 	side: "off" | "def",
 	pos: Position,
 ): PlayerGameSim[] => {
-	if (side !== "def") {
-		return depth;
-	}
-
 	const roles =
-		getDefensiveRoleOrder(
-			formation,
-			pos,
-		);
+		side === "off"
+			? getOffensiveRoleOrder(
+					formation,
+					pos,
+				)
+			: getDefensiveRoleOrder(
+					formation,
+					pos,
+				);
 
 	if (
 		roles === undefined ||
