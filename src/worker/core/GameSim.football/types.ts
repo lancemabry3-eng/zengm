@@ -1,5 +1,6 @@
 import type { PlayerInjury } from "../../../common/types.ts";
 import type { Position } from "../../../common/types.football.ts";
+import type { FunctionalRole } from "../player/roleOvr.football.ts";
 
 export type CompositeRating =
 	| "passingAccuracy"
@@ -44,6 +45,22 @@ export type PlayerGameSim = {
 	};
 	ptModifier: number;
 	ovrs: Record<Position, number>;
+
+	/*
+	 * Football functional-role ratings are calculated once
+	 * when the player is loaded into the game simulation.
+	 *
+	 * Keeping these on PlayerGameSim means formation and
+	 * personnel logic can select specialized players without
+	 * recalculating role formulas on every snap.
+	 *
+	 * Optional for compatibility with older tests and any
+	 * manually constructed PlayerGameSim objects.
+	 */
+	roleOvrs?: Partial<
+		Record<FunctionalRole, number>
+	>;
+
 	seasonStats: Record<string, number>;
 };
 
