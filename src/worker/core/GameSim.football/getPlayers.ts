@@ -4,11 +4,13 @@ import helpers from "../../util/helpers.ts";
 import type { FunctionalRole } from "../player/roleOvr.football.ts";
 import {
 	DEFENSIVE_ROLES_BY_FRONT,
+	OFFENSIVE_ROLES_BY_PERSONNEL,
 	getDefensiveRoleOrder,
 	getOffensiveRoleOrder,
 } from "./formations.ts";
 import type {
 	Formation,
+	OffensivePersonnel,
 	PlayerGameSim,
 	PlayersOnField,
 	TeamGameSim,
@@ -222,6 +224,149 @@ export const getRoleBasedDepth = (
 	);
 
 	return reorderedDepth;
+};
+
+const offensivePersonnelFitCache =
+	new WeakMap<
+		TeamGameSim,
+		Map<
+			OffensivePersonnel,
+			number | undefined
+		>
+	>();
+
+/*
+ * Score how naturally a roster fits one offensive personnel
+ * package.
+ *
+ * All current normal personnel packages contain five RB/WR/TE
+ * skill players, so averaging their assigned functional-role
+ * scores makes the packages directly comparable.
+ *
+ * An undefined result means the game-sim player objects do not
+ * contain enough functional-role data. Callers can then fall
+ * back to neutral package weighting for compatibility.
+ */
+export const getOffensivePersonnelFit = (
+	team: TeamGameSim,
+	personnel: OffensivePersonnel,
+): number | undefined => {
+	let cacheForTeam =
+		offensivePersonnelFitCache.get(
+			team,
+		);
+
+	if (!cacheForTeam) {
+		cacheForTeam =
+			new Map<
+				OffensivePersonnel,
+				number | undefined
+			>();
+
+		offensivePersonnelFitCache.set(
+			team,
+			cacheForTeam,
+		);
+	}
+
+	if (
+		cacheForTeam.has(
+			personnel,
+		)
+	) {
+		return cacheForTeam.get(
+			personnel,
+		);
+	}
+
+	let totalScore = 0;
+	let roleCount = 0;
+
+	for (
+		const pos of
+			["RB", "WR", "TE"] as const
+	) {
+		const roles =
+			OFFENSIVE_ROLES_BY_PERSONNEL[
+				personnel
+			][pos];
+
+		if (
+			roles === undefined ||
+			roles.length === 0
+		) {
+			continue;
+		}
+
+		const depth =
+			team.depth[pos];
+
+		if (
+			depth === undefined ||
+			depth.length <
+				roles.length
+		) {
+			cacheForTeam.set(
+				personnel,
+				undefined,
+			);
+
+			return undefined;
+		}
+
+		const orderedDepth =
+			getRoleBasedDepth(
+				depth,
+				roles,
+			);
+
+		for (
+			let i = 0;
+			i < roles.length;
+			i++
+		) {
+			const role =
+				roles[i]!;
+
+			const p =
+				orderedDepth[i];
+
+			const score =
+				p?.roleOvrs?.[
+					role
+				];
+
+			if (
+				score ===
+				undefined
+			) {
+				cacheForTeam.set(
+					personnel,
+					undefined,
+				);
+
+				return undefined;
+			}
+
+			totalScore +=
+				score;
+
+			roleCount += 1;
+		}
+	}
+
+	const fit =
+		roleCount > 0
+			? totalScore /
+				roleCount
+			: undefined;
+
+	cacheForTeam.set(
+		personnel,
+		fit,
+	);
+
+	return fit;
 };
 
 type BaseDefensiveFront =
