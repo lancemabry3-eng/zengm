@@ -100,9 +100,19 @@ const getPersonnelSituationWeight = (
 ): number => {
 	let weight: number;
 
+	/*
+	 * Base package tendencies.
+	 *
+	 * 11 is the primary passing package.
+	 * 12 is balanced and flexible.
+	 * 21 leans toward the run game.
+	 * 22 is the heaviest specialty grouping.
+	 */
 	if (playType === "pass") {
 		if (personnel === "11") {
 			weight = 5.5;
+		} else if (personnel === "12") {
+			weight = 3.5;
 		} else if (personnel === "21") {
 			weight = 2.25;
 		} else {
@@ -111,6 +121,8 @@ const getPersonnelSituationWeight = (
 	} else {
 		if (personnel === "11") {
 			weight = 2.5;
+		} else if (personnel === "12") {
+			weight = 3.5;
 		} else if (personnel === "21") {
 			weight = 4;
 		} else {
@@ -120,10 +132,16 @@ const getPersonnelSituationWeight = (
 
 	/*
 	 * Short yardage invites heavier personnel.
+	 *
+	 * 12 gets a modest bump because the second TE adds
+	 * blocking without sacrificing as much receiving threat
+	 * as 21 or 22.
 	 */
 	if (toGo <= 2) {
 		if (personnel === "11") {
 			weight *= 0.75;
+		} else if (personnel === "12") {
+			weight *= 1.15;
 		} else if (personnel === "21") {
 			weight *= 1.25;
 		} else {
@@ -132,11 +150,15 @@ const getPersonnelSituationWeight = (
 	}
 
 	/*
-	 * Longer yardage pushes the offense toward 11 personnel.
+	 * Longer yardage pushes the offense toward spread skill
+	 * personnel, but 12 can remain viable because its second
+	 * TE may still be a legitimate receiver.
 	 */
 	if (toGo >= 7) {
 		if (personnel === "11") {
 			weight *= 1.55;
+		} else if (personnel === "12") {
+			weight *= 1.05;
 		} else if (personnel === "21") {
 			weight *= 0.8;
 		} else {
@@ -145,8 +167,10 @@ const getPersonnelSituationWeight = (
 	}
 
 	/*
-	 * Obvious passing downs lean further toward spread skill
-	 * personnel, without completely eliminating heavier sets.
+	 * Obvious passing downs lean further toward 11.
+	 *
+	 * 12 remains a useful changeup when a team has enough TE
+	 * receiving talent to punish lighter defensive packages.
 	 */
 	if (
 		down >= 3 &&
@@ -154,6 +178,8 @@ const getPersonnelSituationWeight = (
 	) {
 		if (personnel === "11") {
 			weight *= 1.5;
+		} else if (personnel === "12") {
+			weight *= 1.05;
 		} else if (personnel === "21") {
 			weight *= 0.75;
 		} else {
@@ -164,10 +190,15 @@ const getPersonnelSituationWeight = (
 	/*
 	 * Inside the opponent's five, power personnel becomes
 	 * significantly more attractive.
+	 *
+	 * 12 receives a meaningful bump while still remaining the
+	 * most balanced heavy-ish package.
 	 */
 	if (scrimmage >= 95) {
 		if (personnel === "11") {
 			weight *= 0.7;
+		} else if (personnel === "12") {
+			weight *= 1.2;
 		} else if (personnel === "21") {
 			weight *= 1.25;
 		} else {
@@ -277,11 +308,9 @@ const chooseOffensiveFormation = (
  * Football realism layer.
  *
  * The base Football GameSim still handles the entire game.
- * This subclass only replaces player selection so defensive
- * formations can use functional-role depth orders.
- *
- * Everything else continues to come from the existing
- * Football GameSim implementation.
+ * This subclass replaces formation/player selection so
+ * functional roles, personnel packages, and defensive
+ * schemes can influence who actually takes the field.
  */
 class GameSimFootballRealism extends GameSimFootball {
 	updatePlayersOnField(
@@ -346,7 +375,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			/*
 			 * 11 personnel forces the defense into nickel.
 			 *
-			 * Heavier 21/22 personnel is answered by the
+			 * 12, 21, and 22 personnel are answered by the
 			 * defense's own inferred base 3-4 or 4-3 scheme.
 			 */
 			formation =
@@ -401,10 +430,6 @@ class GameSimFootballRealism extends GameSimFootball {
 			const side =
 				sides[i];
 
-			/*
-			 * Don't let one player be used at two positions
-			 * on the same side of the ball.
-			 */
 			const pidsUsed =
 				new Set<number>();
 
@@ -424,21 +449,11 @@ class GameSimFootballRealism extends GameSimFootball {
 						side
 					][pos]!;
 
-				/*
-				 * Preserve the existing WR fatigue behavior.
-				 */
 				const FATIGUE_MODIFIER =
 					pos === "WR"
 						? 0.75
 						: 1;
 
-				/*
-				 * Offense and special teams receive the normal
-				 * depth chart.
-				 *
-				 * Normal defensive formations receive a cached,
-				 * front-specific functional-role ordering.
-				 */
 				const depth =
 					getFormationDepth(
 						this.team[t]
@@ -462,9 +477,6 @@ class GameSimFootballRealism extends GameSimFootball {
 				 * C
 				 * RG
 				 * RT
-				 *
-				 * An injured starter is replaced without
-				 * collapsing the rest of the line inward.
 				 */
 				if (
 					pos === "OL" &&
@@ -845,19 +857,6 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 		};
 
-		/*
-		 * OL always block.
-		 *
-		 * TE and RB may stay in protection.
-		 *
-		 * The five OL entries remain ordered:
-		 *
-		 * LT
-		 * LG
-		 * C
-		 * RG
-		 * RT
-		 */
 		const ol =
 			this.playersOnField[
 				o
