@@ -1,7 +1,7 @@
 import { FATIGUE_POS } from "../../common/constants.football.ts";
-import { choice } from "../../common/random.ts";
+import { choice, randInt, truncGauss } from "../../common/random.ts";
 import { bySport } from "../../common/sportFunctions.ts";
-import { helpers } from "../util/index.ts";
+import { g, helpers } from "../util/index.ts";
 import GameSimBaseball from "./GameSim.baseball/index.ts";
 import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
@@ -251,12 +251,6 @@ class GameSimFootballRealism extends GameSimFootball {
 								);
 						}
 
-						/*
-						 * If no healthy backup is available,
-						 * preserve the starter's assigned slot
-						 * before considering another injured
-						 * backup.
-						 */
 						if (
 							!p &&
 							!pidsUsed.has(
@@ -376,9 +370,6 @@ class GameSimFootballRealism extends GameSimFootball {
 					t
 				][pos] = players;
 
-				/*
-				 * Retry without ignoring fatigued players.
-				 */
 				if (
 					players.length <
 					numPlayers
@@ -418,9 +409,6 @@ class GameSimFootballRealism extends GameSimFootball {
 						}
 					}
 
-					/*
-					 * Last resort: allow injured players.
-					 */
 					if (
 						players.length <
 						numPlayers
@@ -490,6 +478,581 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		this.updateTeamCompositeRatings();
 	}
+
+	doPass() {
+		const o = this.o;
+		const d = this.d;
+
+		this.updatePlayersOnField("pass");
+
+		const penInfo =
+			this.checkPenalties(
+				"beforeSnap",
+			);
+
+		if (penInfo) {
+			return 0;
+		}
+
+		const pbw = new Map<
+			PlayerGameSim,
+			{
+				type:
+					| "OL"
+					| "Other";
+				won: boolean;
+			}
+		>();
+
+		const pbCounts = {
+			aOL: 0,
+			aOther: 0,
+			wOL: 0,
+			wOther: 0,
+		};
+
+		const addBlockAttempt = (
+			p: PlayerGameSim,
+			type:
+				| "OL"
+				| "Other",
+			baselineRatio: number,
+		) => {
+			const ratio =
+				p.compositeRating
+					.passBlocking /
+				this.team[d]
+					.compositeRating
+					.passRushing;
+
+			const probWin =
+				helpers.bound(
+					(ratio -
+						baselineRatio) *
+						(0.45 /
+							0.25) +
+						0.5,
+					0,
+					0.96,
+				);
+
+			const won =
+				Math.random() <
+				probWin;
+
+			pbw.set(
+				p,
+				{
+					type,
+					won,
+				},
+			);
+
+			pbCounts[
+				`a${type}`
+			] += 1;
+
+			if (won) {
+				pbCounts[
+					`w${type}`
+				] += 1;
+			}
+		};
+
+		/*
+		 * OL always block.
+		 *
+		 * TE and RB may stay in protection.
+		 *
+		 * The five OL entries remain ordered:
+		 *
+		 * LT
+		 * LG
+		 * C
+		 * RG
+		 * RT
+		 */
+		const ol =
+			this.playersOnField[
+				o
+			].OL;
+
+		if (ol) {
+			const passBlockBaselines = [
+				1.03,
+				0.99,
+				0.98,
+				0.99,
+				1.02,
+			];
+
+			for (
+				let i = 0;
+				i < ol.length;
+				i++
+			) {
+				addBlockAttempt(
+					ol[i]!,
+					"OL",
+					passBlockBaselines[
+						i
+					] ?? 1,
+				);
+			}
+		}
+
+		/*
+		 * Restore TE pass protection.
+		 *
+		 * Each TE has a 10% chance to remain in protection.
+		 */
+		const te =
+			this.playersOnField[
+				o
+			].TE;
+
+		if (te) {
+			for (const p of te) {
+				if (
+					Math.random() <
+					0.1
+				) {
+					addBlockAttempt(
+						p,
+						"Other",
+						0.75,
+					);
+				}
+			}
+		}
+
+		const rb =
+			this.playersOnField[
+				o
+			].RB;
+
+		if (rb) {
+			for (const p of rb) {
+				if (
+					Math.random() <
+					0.5
+				) {
+					addBlockAttempt(
+						p,
+						"Other",
+						0.5,
+					);
+				}
+			}
+		}
+
+		const qb =
+			this.getTopPlayerOnField(
+				o,
+				"QB",
+			);
+
+		this.currentPlay.addEvent(
+			{
+				type: "dropback",
+				pbw,
+			},
+		);
+
+		this.playByPlay.logEvent(
+			{
+				type: "dropback",
+				clock:
+					this.clock,
+				names: [
+					qb.name,
+				],
+				t: o,
+			},
+		);
+
+		let dt =
+			randInt(
+				2,
+				6,
+			);
+
+		if (
+			Math.random() <
+				0.75 &&
+			Math.random() <
+				this.probFumble(
+					qb,
+				)
+		) {
+			const yds =
+				this.currentPlay.boundedYds(
+					randInt(
+						-1,
+						-10,
+					),
+				);
+
+			return (
+				dt +
+				this.doFumble(
+					qb,
+					yds,
+				)
+			);
+		}
+
+		const sack =
+			Math.random() <
+			this.probSack(
+				qb,
+				pbw,
+			);
+
+		if (sack) {
+			return this.doSack(
+				qb,
+				pbw,
+			);
+		}
+
+		if (
+			this.probScramble(
+				this.playersOnField[
+					o
+				].QB?.[0],
+			) >
+			Math.random()
+		) {
+			return this.doRun(
+				true,
+			);
+		}
+
+		const target =
+			this.pickPlayer(
+				o,
+				Math.random() <
+					0.2
+					? "catching"
+					: "gettingOpen",
+				[
+					"WR",
+					"TE",
+					"RB",
+				],
+				1.5,
+			);
+
+		const rbFactor =
+			this.playersOnField[
+				o
+			].RB?.includes(
+				target,
+			) &&
+			Math.random() <
+				0.75
+				? target
+						.compositeRating
+						.gettingOpen
+				: 1;
+
+		let ydsRaw =
+			Math.round(
+				truncGauss(
+					helpers.bound(
+						rbFactor *
+							8.6 *
+							(
+								this
+									.team[
+									o
+								]
+									.compositeRating
+									.passBlocking /
+								this
+									.team[
+									d
+								]
+									.compositeRating
+									.passRushing
+							),
+						-5,
+						100,
+					),
+					rbFactor *
+						7,
+					-5,
+					100,
+				),
+			);
+
+		if (
+			Math.random() <
+			qb.compositeRating
+				.passingDeep *
+				0.05
+		) {
+			ydsRaw +=
+				randInt(
+					0,
+					109,
+				);
+		}
+
+		ydsRaw +=
+			Math.round(
+				(
+					target
+						.compositeRating
+						.speed -
+					0.5
+				) *
+					6,
+			);
+
+		if (
+			Math.random() <
+			target.compositeRating
+				.speed *
+				0.025
+		) {
+			ydsRaw +=
+				randInt(
+					0,
+					109,
+				);
+		}
+
+		if (ydsRaw < 0) {
+			ydsRaw +=
+				randInt(
+					0,
+					5,
+				);
+		}
+
+		ydsRaw =
+			Math.round(
+				ydsRaw *
+					g.get(
+						"passYdsFactor",
+					),
+			);
+
+		const yds =
+			this.currentPlay.boundedYds(
+				ydsRaw,
+			);
+
+		const defender =
+			this.pickPlayer(
+				d,
+				"passCoverage",
+				undefined,
+				2,
+			);
+
+		const complete =
+			Math.random() <
+			this.probComplete(
+				qb,
+				target,
+				defender,
+			);
+
+		const interception =
+			Math.random() <
+			this.probInt(
+				qb,
+				defender,
+			);
+
+		this.checkPenalties(
+			"pass",
+			{
+				ballCarrier:
+					target,
+				playYds:
+					yds,
+				incompletePass:
+					!complete &&
+					!interception,
+			},
+		);
+
+		this.currentPlay.addEvent(
+			{
+				type: "pss",
+				qb,
+				target,
+			},
+		);
+
+		if (interception) {
+			dt +=
+				this.doInterception(
+					qb,
+					yds,
+					defender,
+				);
+		} else {
+			dt +=
+				Math.abs(
+					yds,
+				) / 20;
+
+			if (complete) {
+				const {
+					td,
+					safety,
+				} =
+					this.currentPlay.addEvent(
+						{
+							type:
+								"pssCmp",
+							qb,
+							target,
+							yds,
+						},
+					);
+
+				const completeEvent = {
+					type:
+						"passComplete" as const,
+					clock:
+						this.clock,
+					names: [
+						qb.name,
+						target.name,
+					],
+					safety,
+					t: o,
+					td,
+					twoPointConversionTeam:
+						this
+							.twoPointConversionTeam,
+					yds,
+				};
+
+				if (
+					!td &&
+					!safety
+				) {
+					if (
+						Math.random() <
+						this.probFumble(
+							target,
+						)
+					) {
+						this.playByPlay.logEvent(
+							{
+								totalPssTD:
+									undefined,
+								totalRecTD:
+									undefined,
+								...completeEvent,
+							},
+						);
+
+						return (
+							dt +
+							this.doFumble(
+								target,
+								0,
+							)
+						);
+					}
+				}
+
+				if (td) {
+					this.currentPlay.addEvent(
+						{
+							type:
+								"pssTD",
+							qb,
+							target,
+						},
+					);
+				}
+
+				if (safety) {
+					this.doSafety();
+				}
+
+				this.playByPlay.logEvent(
+					{
+						totalPssTD:
+							this
+								.allStarGame
+								? undefined
+								: qb
+										.seasonStats[
+										"pssTD"
+									] +
+									qb
+										.stat[
+										"pssTD"
+									],
+						totalRecTD:
+							this
+								.allStarGame
+								? undefined
+								: target
+										.seasonStats[
+										"recTD"
+									] +
+									target
+										.stat[
+										"recTD"
+									],
+						...completeEvent,
+					},
+				);
+
+				if (
+					!td &&
+					!safety
+				) {
+					this.doTackle(
+						{
+							ydsFromScrimmage:
+								yds,
+						},
+					);
+				}
+			} else {
+				this.currentPlay.addEvent(
+					{
+						type:
+							"pssInc",
+						defender:
+							Math.random() <
+							0.28
+								? defender
+								: undefined,
+					},
+				);
+
+				this.playByPlay.logEvent(
+					{
+						type:
+							"passIncomplete",
+						clock:
+							this.clock,
+						names: [
+							qb.name,
+							target.name,
+						],
+						t: o,
+						yds,
+					},
+				);
+			}
+		}
+
+		return dt;
+	}
 }
 
 const GameSim = bySport<
@@ -500,7 +1063,8 @@ const GameSim = bySport<
 >({
 	baseball: GameSimBaseball,
 	basketball: GameSimBasketball,
-	football: GameSimFootballRealism,
+	football:
+		GameSimFootballRealism,
 	hockey: GameSimHockey,
 });
 
