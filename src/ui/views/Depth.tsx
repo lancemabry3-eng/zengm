@@ -250,6 +250,12 @@ const Depth = ({
 			"Z",
 			"Slot",
 		];
+	} else if (__SPORT === "football" && pos === "CB") {
+		rowLabels = [
+			"Outside",
+			"Outside",
+			"Slot",
+		];
 	} else if (__SPORT === "football" && pos === "S") {
 		rowLabels = [
 			"FS",
@@ -626,6 +632,17 @@ const Depth = ({
 					based on each player's functional role ratings.
 					Two-receiver formations use the X and Z, while
 					three-receiver formations add the Slot receiver.
+				</div>
+			) : null}
+
+			{__SPORT === "football" && pos === "CB" ? (
+				<div className="alert alert-info d-inline-block">
+					The first two cornerback slots are Outside corners.
+					The third slot is the Slot corner. Auto sort chooses
+					the strongest three-man combination based on each
+					player's functional role ratings. Two-corner
+					personnel uses the Outside corners, while
+					three-corner personnel adds the Slot corner.
 				</div>
 			) : null}
 
