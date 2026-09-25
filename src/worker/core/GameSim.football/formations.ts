@@ -49,6 +49,31 @@ export const OFFENSIVE_ROLES_BY_PERSONNEL: Record<
 	},
 
 	/*
+	 * 12 personnel
+	 *
+	 * One feature back.
+	 * Two outside receivers.
+	 * One receiving TE plus one traditional Y.
+	 *
+	 * This allows the package to threaten the defense through
+	 * the air while retaining much more blocking flexibility
+	 * than 11 personnel.
+	 */
+	"12": {
+		RB: [
+			"RB_FEATURE",
+		],
+		WR: [
+			"WR_X",
+			"WR_Z",
+		],
+		TE: [
+			"TE_RECEIVING",
+			"TE_Y",
+		],
+	},
+
+	/*
 	 * 21 personnel
 	 *
 	 * One feature back plus a more physical second back.
@@ -252,6 +277,36 @@ const normal: Formation[] = [
 			DL: 4,
 			LB: 2,
 			CB: 3,
+			S: 2,
+		},
+	},
+
+	/*
+	 * 12 personnel
+	 *
+	 * 1 RB
+	 * 2 TE
+	 * 2 WR
+	 *
+	 * The realism GameSim answers this with the defending
+	 * team's inferred base 3-4 or 4-3 front.
+	 *
+	 * BASE_4_3 here is only the template default.
+	 */
+	{
+		offensivePersonnel: "12",
+		defensiveFront: "BASE_4_3",
+		off: {
+			QB: 1,
+			RB: 1,
+			WR: 2,
+			TE: 2,
+			OL: 5,
+		},
+		def: {
+			DL: 4,
+			LB: 3,
+			CB: 2,
 			S: 2,
 		},
 	},
