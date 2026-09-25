@@ -3,11 +3,112 @@ import type { FunctionalRole } from "../player/roleOvr.football.ts";
 import type {
 	DefensiveFront,
 	Formation,
+	OffensivePersonnel,
 } from "./types.ts";
 
 type DefensiveRoleOrder = Partial<
 	Record<Position, FunctionalRole[]>
 >;
+
+type OffensiveRoleOrder = Partial<
+	Record<Position, FunctionalRole[]>
+>;
+
+/*
+ * Functional-role requirements for each offensive personnel
+ * package.
+ *
+ * These describe which kinds of RBs, WRs, and TEs should be
+ * preferred when that personnel package takes the field.
+ *
+ * OL remains governed by its LT/LG/C/RG/RT depth chart.
+ */
+export const OFFENSIVE_ROLES_BY_PERSONNEL: Record<
+	OffensivePersonnel,
+	OffensiveRoleOrder
+> = {
+	/*
+	 * 11 personnel
+	 *
+	 * One versatile back.
+	 * Three distinct receiver jobs.
+	 * One receiving-oriented TE.
+	 */
+	"11": {
+		RB: [
+			"RB_FEATURE",
+		],
+		WR: [
+			"WR_X",
+			"WR_Z",
+			"WR_SLOT",
+		],
+		TE: [
+			"TE_RECEIVING",
+		],
+	},
+
+	/*
+	 * 21 personnel
+	 *
+	 * One feature back plus a more physical second back.
+	 * Two outside receivers.
+	 * One traditional Y tight end.
+	 */
+	"21": {
+		RB: [
+			"RB_FEATURE",
+			"RB_POWER",
+		],
+		WR: [
+			"WR_X",
+			"WR_Z",
+		],
+		TE: [
+			"TE_Y",
+		],
+	},
+
+	/*
+	 * 22 personnel
+	 *
+	 * Heavy backfield and tight-end grouping.
+	 *
+	 * One power back.
+	 * One short-yardage back.
+	 * One X receiver.
+	 * One blocking TE and one traditional Y.
+	 */
+	"22": {
+		RB: [
+			"RB_POWER",
+			"RB_SHORT_YARDAGE",
+		],
+		WR: [
+			"WR_X",
+		],
+		TE: [
+			"TE_BLOCKING",
+			"TE_Y",
+		],
+	},
+};
+
+export const getOffensiveRoleOrder = (
+	formation: Formation,
+	pos: Position,
+): FunctionalRole[] | undefined => {
+	const personnel =
+		formation.offensivePersonnel;
+
+	if (personnel === undefined) {
+		return undefined;
+	}
+
+	return OFFENSIVE_ROLES_BY_PERSONNEL[
+		personnel
+	][pos];
+};
 
 /*
  * Functional-role requirements for each defensive front.
@@ -16,7 +117,7 @@ type DefensiveRoleOrder = Partial<
  * specific personnel package.
  *
  * They do not replace the traditional position depth chart.
- * The game sim will use them to choose among eligible players
+ * The game sim uses them to choose among eligible players
  * while retaining the existing depth chart as the fallback.
  */
 export const DEFENSIVE_ROLES_BY_FRONT: Record<
@@ -135,12 +236,7 @@ const normal: Formation[] = [
 	 * 1 TE
 	 * 3 WR
 	 *
-	 * Defense answers with a Nickel 4-2:
-	 *
-	 * 4 DL
-	 * 2 LB
-	 * 3 CB
-	 * 2 S
+	 * Nickel 4-2 is the default defensive answer.
 	 */
 	{
 		offensivePersonnel: "11",
@@ -167,12 +263,10 @@ const normal: Formation[] = [
 	 * 1 TE
 	 * 2 WR
 	 *
-	 * Defense answers with a Base 3-4:
+	 * BASE_3_4 remains the template default.
 	 *
-	 * 3 DL
-	 * 4 LB
-	 * 2 CB
-	 * 2 S
+	 * The realism GameSim can replace it with the defending
+	 * team's own inferred base 3-4 or 4-3 scheme.
 	 */
 	{
 		offensivePersonnel: "21",
@@ -199,12 +293,10 @@ const normal: Formation[] = [
 	 * 2 TE
 	 * 1 WR
 	 *
-	 * Defense answers with a Base 4-3:
+	 * BASE_4_3 remains the template default.
 	 *
-	 * 4 DL
-	 * 3 LB
-	 * 2 CB
-	 * 2 S
+	 * The realism GameSim can replace it with the defending
+	 * team's own inferred base 3-4 or 4-3 scheme.
 	 */
 	{
 		offensivePersonnel: "22",
