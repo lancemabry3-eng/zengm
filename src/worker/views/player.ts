@@ -6,6 +6,11 @@ import {
 	DEFAULT_JERSEY,
 } from "../../common/constants.ts";
 import { player } from "../core/index.ts";
+import {
+	FUNCTIONAL_ROLE_LABELS,
+	getRoleOvrs,
+	type FunctionalRole,
+} from "../core/player/roleOvr.football.ts";
 import { idb } from "../db/index.ts";
 import { g, helpers } from "../util/index.ts";
 import type {
@@ -594,14 +599,41 @@ const updatePlayer = async (
 
 		const leaders = await player.getLeaders(topStuff.pRaw);
 
-		return {
-			...topStuff,
-			events,
-			feats,
-			leaders,
-			ratings: RATINGS,
-		};
+let functionalRoles;
+
+if (__SPORT === "football") {
+	const currentRatings = p.ratings.at(-1);
+
+	if (currentRatings) {
+		functionalRoles = Object.entries(
+			getRoleOvrs(currentRatings as any),
+		)
+			.flatMap(([role, ovr]) => {
+				if (ovr === undefined) {
+					return [];
+				}
+
+				const functionalRole = role as FunctionalRole;
+
+				return [
+					{
+						role: functionalRole,
+						label: FUNCTIONAL_ROLE_LABELS[functionalRole],
+						ovr,
+					},
+				];
+			})
+			.sort((a, b) => b.ovr - a.ovr);
 	}
+}
+
+return {
+	...topStuff,
+	events,
+	feats,
+	functionalRoles,
+	leaders,
+	ratings: RATINGS,
 };
 
 export default updatePlayer;
