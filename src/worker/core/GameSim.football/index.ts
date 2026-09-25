@@ -1275,7 +1275,64 @@ class GameSim extends GameSimBase {
 
 				const depth = this.team[t].depth[pos];
 				const players: PlayerGameSim[] = [];
-				if (FATIGUE_POS.has(pos)) {
+				if (pos === "OL" && numPlayers === 5 && depth.length >= 5) {
+					const getOlBackup = (healthyOnly: boolean) => {
+						for (
+							let depthIndex = 5;
+							depthIndex < depth.length;
+							depthIndex++
+						) {
+							const p = depth[depthIndex]!;
+
+							if (pidsUsed.has(p.id)) {
+								continue;
+							}
+
+							if (healthyOnly && p.injured) {
+								continue;
+							}
+
+							return p;
+						}
+					};
+
+					for (let slotIndex = 0; slotIndex < 5; slotIndex++) {
+						const starter = depth[slotIndex]!;
+
+						let p: PlayerGameSim | undefined;
+
+						if (
+							!starter.injured &&
+							!pidsUsed.has(starter.id)
+						) {
+							p = starter;
+						} else {
+							p = getOlBackup(true);
+						}
+
+						/*
+						 * If there are no healthy backups available,
+						 * preserve the starter's assigned OL slot
+						 * before considering another injured backup.
+						 */
+						if (
+							!p &&
+							!pidsUsed.has(starter.id)
+						) {
+							p = starter;
+						}
+
+						if (!p) {
+							p = getOlBackup(false);
+						}
+
+						if (p) {
+							players.push(p);
+							pidsUsed.add(p.id);
+						}
+					}
+				}
+			else	if (FATIGUE_POS.has(pos)) {
 					for (let depthIndex = 0; depthIndex < depth.length; depthIndex++) {
 						if (players.length >= numPlayers) {
 							break;
