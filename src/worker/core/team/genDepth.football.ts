@@ -57,6 +57,13 @@ const WR_ROLES: FunctionalRole[] = [
 	"WR_SLOT",
 ];
 
+const LB_ROLES: FunctionalRole[] = [
+	"MIKE",
+	"WILL",
+	"SAM",
+	"LB_EDGE",
+];
+
 const CB_ROLES: FunctionalRole[] = [
 	"CB_OUTSIDE",
 	"CB_OUTSIDE",
@@ -307,15 +314,6 @@ const genFunctionalRoleDepth = (
 const genOlDepth = (
 	players: PlayerFiltered[],
 ): number[] => {
-	/*
-	 * First five:
-	 *
-	 * LT
-	 * LG
-	 * C
-	 * RG
-	 * RT
-	 */
 	return genFunctionalRoleDepth(
 		players,
 		"OL",
@@ -327,19 +325,6 @@ const genOlDepth = (
 const genWrDepth = (
 	players: PlayerFiltered[],
 ): number[] => {
-	/*
-	 * First three:
-	 *
-	 * X
-	 * Z
-	 * Slot
-	 *
-	 * Three-WR formations use all three.
-	 *
-	 * Two-WR formations use X and Z.
-	 *
-	 * One-WR formations use the X receiver.
-	 */
 	return genFunctionalRoleDepth(
 		players,
 		"WR",
@@ -348,20 +333,34 @@ const genWrDepth = (
 	);
 };
 
-const genCbDepth = (
+const genLbDepth = (
 	players: PlayerFiltered[],
 ): number[] => {
 	/*
-	 * First three:
+	 * First four:
 	 *
-	 * Outside CB
-	 * Outside CB
-	 * Slot CB
+	 * MIKE
+	 * WILL
+	 * SAM
+	 * EDGE
 	 *
-	 * Two-CB formations use the two outside corners.
+	 * Two-LB packages use MIKE and WILL.
 	 *
-	 * Three-CB formations add the slot corner.
+	 * Three-LB packages add SAM.
+	 *
+	 * Four-LB packages add the EDGE linebacker.
 	 */
+	return genFunctionalRoleDepth(
+		players,
+		"LB",
+		LB_ROLES,
+		10,
+	);
+};
+
+const genCbDepth = (
+	players: PlayerFiltered[],
+): number[] => {
 	return genFunctionalRoleDepth(
 		players,
 		"CB",
@@ -373,19 +372,6 @@ const genCbDepth = (
 const genSafetyDepth = (
 	players: PlayerFiltered[],
 ): number[] => {
-	/*
-	 * First three:
-	 *
-	 * FS
-	 * SS
-	 * Box Safety
-	 *
-	 * Standard two-safety formations use FS and SS.
-	 *
-	 * The Box Safety is kept as the third specialized
-	 * safety for future nickel, dime, and heavy-box
-	 * personnel packages.
-	 */
 	return genFunctionalRoleDepth(
 		players,
 		"S",
@@ -427,11 +413,6 @@ const genDepth = async (
 
 	let players: PlayerFiltered[];
 
-	/*
-	 * Can't use getCopies in exhibition games.
-	 *
-	 * Exhibition games intentionally ignore fuzz.
-	 */
 	if (
 		local.exhibitionGamePlayers
 	) {
@@ -477,10 +458,6 @@ const genDepth = async (
 
 	for (const pos2 of positions) {
 		if (onlyNewPlayers) {
-			/*
-			 * Add new players without otherwise
-			 * disturbing the user's custom depth chart.
-			 */
 			const playersNotInDepth =
 				players.filter(
 					(p) =>
@@ -561,6 +538,13 @@ const genDepth = async (
 		) {
 			depth.WR =
 				genWrDepth(
+					players,
+				);
+		} else if (
+			pos2 === "LB"
+		) {
+			depth.LB =
+				genLbDepth(
 					players,
 				);
 		} else if (
