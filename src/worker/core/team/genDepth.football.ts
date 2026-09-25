@@ -337,4 +337,90 @@ const genDepth = async (
 		: POSITIONS;
 
 	for (const pos2 of positions) {
-		if (onlyNewPlayers
+				if (onlyNewPlayers) {
+			/*
+			 * Identify players not currently in the depth
+			 * chart and add them above players they are
+			 * better than without otherwise disturbing the
+			 * user's custom depth chart.
+			 *
+			 * We deliberately preserve this behavior for now.
+			 * Functional-role optimization occurs during a
+			 * full depth-chart generation/auto-sort.
+			 */
+			const playersNotInDepth =
+				players.filter(
+					(p) =>
+						!depth[pos2].includes(
+							p.pid,
+						),
+				);
+
+			for (
+				const p of playersNotInDepth
+			) {
+				const pScore =
+					score(p, pos2);
+
+				let added = false;
+
+				for (
+					let i = 0;
+					i < depth[pos2].length;
+					i++
+				) {
+					const p2 = players.find(
+						(p3) =>
+							p3.pid ===
+							depth[pos2][i],
+					);
+
+					if (
+						!p2 ||
+						pScore >
+							score(p2, pos2)
+					) {
+						depth[pos2].splice(
+							i,
+							0,
+							p.pid,
+						);
+
+						added = true;
+						break;
+					}
+				}
+
+				if (!added) {
+					depth[pos2].push(
+						p.pid,
+					);
+				}
+			}
+		} else if (pos2 === "OL") {
+			/*
+			 * REALISM OVERHAUL:
+			 *
+			 * Build an actual five-man offensive line:
+			 *
+			 * LT / LG / C / RG / RT
+			 */
+			depth.OL =
+				genOlDepth(players);
+		} else {
+			/*
+			 * Original Football GM depth-chart behavior for
+			 * every position we have not overhauled yet.
+			 */
+			depth[pos2] =
+				sortByPositionScore(
+					players,
+					pos2,
+				).map((p) => p.pid);
+		}
+	}
+
+	return depth;
+};
+
+export default genDepth;
