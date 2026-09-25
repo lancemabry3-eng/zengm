@@ -84,9 +84,15 @@ export type TeamGameSim = {
  * Second digit = tight ends
  *
  * The remaining eligible skill players are wide receivers.
+ *
+ * 11 = 1 RB, 1 TE, 3 WR
+ * 12 = 1 RB, 2 TE, 2 WR
+ * 21 = 2 RB, 1 TE, 2 WR
+ * 22 = 2 RB, 2 TE, 1 WR
  */
 export type OffensivePersonnel =
 	| "11"
+	| "12"
 	| "21"
 	| "22";
 
@@ -94,8 +100,8 @@ export type OffensivePersonnel =
  * Defensive fronts identify the actual structure of
  * the defensive personnel package.
  *
- * These will eventually control which functional DL,
- * LB, CB, and safety roles are selected for each snap.
+ * These control which functional DL, LB, CB, and safety
+ * roles are selected for each snap.
  */
 export type DefensiveFront =
 	| "NICKEL_4_2"
