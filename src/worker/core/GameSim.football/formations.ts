@@ -1,4 +1,131 @@
-import type { Formation } from "./types.ts";
+import type { Position } from "../../../common/types.football.ts";
+import type { FunctionalRole } from "../player/roleOvr.football.ts";
+import type {
+	DefensiveFront,
+	Formation,
+} from "./types.ts";
+
+type DefensiveRoleOrder = Partial<
+	Record<Position, FunctionalRole[]>
+>;
+
+/*
+ * Functional-role requirements for each defensive front.
+ *
+ * These arrays describe the preferred players for that
+ * specific personnel package.
+ *
+ * They do not replace the traditional position depth chart.
+ * The game sim will use them to choose among eligible players
+ * while retaining the existing depth chart as the fallback.
+ */
+export const DEFENSIVE_ROLES_BY_FRONT: Record<
+	DefensiveFront,
+	DefensiveRoleOrder
+> = {
+	NICKEL_4_2: {
+		/*
+		 * Nickel emphasizes pass rush on the edges while
+		 * retaining two interior defensive tackles.
+		 */
+		DL: [
+			"DL_EDGE",
+			"DT",
+			"DT",
+			"DL_EDGE",
+		],
+		LB: [
+			"MIKE",
+			"WILL",
+		],
+		CB: [
+			"CB_OUTSIDE",
+			"CB_OUTSIDE",
+			"CB_SLOT",
+		],
+		S: [
+			"FS",
+			"SS",
+		],
+	},
+
+	BASE_3_4: {
+		/*
+		 * Traditional three-man front:
+		 *
+		 * DE
+		 * NT
+		 * DE
+		 *
+		 * The fourth linebacker is the primary EDGE rusher.
+		 */
+		DL: [
+			"DE",
+			"NT",
+			"DE",
+		],
+		LB: [
+			"LB_EDGE",
+			"MIKE",
+			"WILL",
+			"SAM",
+		],
+		CB: [
+			"CB_OUTSIDE",
+			"CB_OUTSIDE",
+		],
+		S: [
+			"FS",
+			"SS",
+		],
+	},
+
+	BASE_4_3: {
+		/*
+		 * Traditional four-man front:
+		 *
+		 * DE
+		 * DT
+		 * DT
+		 * DE
+		 */
+		DL: [
+			"DE",
+			"DT",
+			"DT",
+			"DE",
+		],
+		LB: [
+			"MIKE",
+			"WILL",
+			"SAM",
+		],
+		CB: [
+			"CB_OUTSIDE",
+			"CB_OUTSIDE",
+		],
+		S: [
+			"FS",
+			"SS",
+		],
+	},
+};
+
+export const getDefensiveRoleOrder = (
+	formation: Formation,
+	pos: Position,
+): FunctionalRole[] | undefined => {
+	const front =
+		formation.defensiveFront;
+
+	if (front === undefined) {
+		return undefined;
+	}
+
+	return DEFENSIVE_ROLES_BY_FRONT[
+		front
+	][pos];
+};
 
 const normal: Formation[] = [
 	/*
