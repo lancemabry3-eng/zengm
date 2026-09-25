@@ -145,18 +145,22 @@ const Depth = ({
 		setSortedPids(undefined);
 		setPrevPos(pos);
 	}
+
 	if (players !== prevPlayers) {
 		setSortedPids(undefined);
 		setPrevPlayers(players);
 	}
 
 	let playersSorted;
+
 	if (sortedPids !== undefined) {
 		playersSorted = sortedPids.map((pid) => {
 			const p2 = players.find((p) => p.pid === pid);
+
 			if (!p2) {
 				throw new Error("Player not found");
 			}
+
 			return p2;
 		});
 	} else {
@@ -165,7 +169,9 @@ const Depth = ({
 
 	let numStarters = 0;
 	let positions: string[];
+
 	const entry = numStartersByPos[pos]!;
+
 	if (typeof entry === "number") {
 		numStarters = entry;
 		positions = [pos];
@@ -173,19 +179,42 @@ const Depth = ({
 		for (const num of Object.values(entry)) {
 			numStarters += num;
 		}
+
 		positions = Object.keys(entry);
 	}
 
-	const numLines = numLinesByPos ? numLinesByPos[pos]! : 1;
+	const numLines = numLinesByPos
+		? numLinesByPos[pos]!
+		: 1;
 
 	let rowLabels: string[] | undefined;
+
 	if (__SPORT === "baseball") {
 		if (pos === "L" || pos === "LP") {
 			rowLabels = range(1, 10).map(String);
 		} else if (pos === "D") {
-			rowLabels = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"];
+			rowLabels = [
+				"C",
+				"1B",
+				"2B",
+				"3B",
+				"SS",
+				"LF",
+				"CF",
+				"RF",
+				"DH",
+			];
 		} else if (pos === "DP") {
-			rowLabels = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"];
+			rowLabels = [
+				"C",
+				"1B",
+				"2B",
+				"3B",
+				"SS",
+				"LF",
+				"CF",
+				"RF",
+			];
 		} else if (pos === "P") {
 			rowLabels = [
 				"S1",
@@ -205,7 +234,7 @@ const Depth = ({
 				"RP",
 			];
 		}
-	} 	else if (__SPORT === "football" && pos === "OL") {
+	} else if (__SPORT === "football" && pos === "OL") {
 		rowLabels = [
 			"LT",
 			"LG",
@@ -213,16 +242,30 @@ const Depth = ({
 			"RG",
 			"RT",
 		];
+	} else if (__SPORT === "football" && pos === "WR") {
+		rowLabels = [
+			"X",
+			"Z",
+			"Slot",
+		];
 	}
 
 	const getIDsToSave = (pids: number[]): number[] => {
-		// For baseball lineup where saved IDs are not player IDs
-		if (__SPORT === "baseball" && (pos === "L" || pos === "LP")) {
+		if (
+			__SPORT === "baseball" &&
+			(pos === "L" || pos === "LP")
+		) {
 			return pids.map((pid) => {
-				const p2 = players.find((p) => p.pid === pid);
+				const p2 = players.find(
+					(p) => p.pid === pid,
+				);
+
 				if (!p2) {
-					throw new Error("Player not found");
+					throw new Error(
+						"Player not found",
+					);
 				}
+
 				return p2.lineupIndex;
 			});
 		}
@@ -231,6 +274,7 @@ const Depth = ({
 	};
 
 	const overrides: Parameters<typeof getCols>[1] = {};
+
 	for (const rating of ratings) {
 		overrides[`rating:${rating}`] = {
 			classNames: "table-accent",
@@ -243,140 +287,318 @@ const Depth = ({
 			"Pos",
 			"Age",
 			...positions.flatMap((position) => {
-				if (__SPORT === "baseball" && pos !== "P") {
-					return ["Ovr", "Pot"];
+				if (
+					__SPORT === "baseball" &&
+					pos !== "P"
+				) {
+					return [
+						"Ovr",
+						"Pot",
+					];
 				} else {
-					return [`rating:ovr${position}`, `rating:pot${position}`];
+					return [
+						`rating:ovr${position}`,
+						`rating:pot${position}`,
+					];
 				}
 			}),
-			...ratings.map((rating) => `rating:${rating}`),
-			...stats.map((stat) => `stat:${stat}`),
+			...ratings.map(
+				(rating) =>
+					`rating:${rating}`,
+			),
+			...stats.map(
+				(stat) =>
+					`stat:${stat}`,
+			),
 		],
 		overrides,
 	);
 
-	const rows: DataTableRow[] = playersSorted.map((p, i) => {
-		let highlightPosOvr: string | undefined;
-		if (__SPORT === "hockey" && pos === "F" && i < numLines * numStarters) {
-			highlightPosOvr = i % numStarters === 0 ? "C" : "W";
-		} else if (__SPORT === "baseball" && pos === "P") {
-			if (i < 5) {
-				highlightPosOvr = "SP";
-			} else if (i < numStarters) {
-				highlightPosOvr = "RP";
+	const rows: DataTableRow[] =
+		playersSorted.map((p, i) => {
+			let highlightPosOvr:
+				| string
+				| undefined;
+
+			if (
+				__SPORT === "hockey" &&
+				pos === "F" &&
+				i <
+					numLines *
+						numStarters
+			) {
+				highlightPosOvr =
+					i % numStarters === 0
+						? "C"
+						: "W";
+			} else if (
+				__SPORT === "baseball" &&
+				pos === "P"
+			) {
+				if (i < 5) {
+					highlightPosOvr =
+						"SP";
+				} else if (
+					i < numStarters
+				) {
+					highlightPosOvr =
+						"RP";
+				}
 			}
-		}
 
-		let lineupPos;
-		if (__SPORT === "baseball" && pos === "D" && rowLabels?.[i]) {
-			lineupPos = rowLabels[i];
-		} else {
-			lineupPos = p.lineupPos ?? p.ratings.pos;
-		}
+			let lineupPos;
 
-		return {
-			key: p.pid,
-			metadata: {
-				type: "player",
-				pid: p.pid,
-				season,
-				playoffs,
-			},
-			rowLabel: rowLabels?.[i],
-			classNames: ({ isDragged }) => ({
-				separator:
-					!isDragged &&
-					((__SPORT === "baseball" && pos === "P" && i === 4) ||
-						(__SPORT === "baseball" && pos === "D" && i === 8) ||
-						(__SPORT === "baseball" && pos === "DP" && i === 7) ||
-						((i % numStarters) + 1 === numStarters &&
-							i < numLines * numStarters &&
-							i !== playersSorted.length - 1)),
-			}),
-			data: [
-				p.pid >= 0
-					? wrappedPlayerNameLabels({
-							pid: p.pid,
-							injury: p.injury,
-							jerseyNumber: p.stats.jerseyNumber,
-							skills: p.ratings.skills,
-							defaultWatch: p.watch,
-							firstName: p.firstName,
-							firstNameShort: p.firstNameShort,
-							lastName: p.lastName,
-						})
-					: null,
-				{
-					value:
-						__SPORT === "baseball" && (pos === "D" || pos === "DP")
-							? p.ratings.pos
-							: p.pid >= 0
-								? lineupPos
-								: p.pid === -1
-									? "P"
-									: null,
-					classNames: {
-						"text-danger":
-							__SPORT === "baseball" && p.lineupPos !== undefined
-								? p.pid >= 0 &&
-									p.lineupPos !== "DH" &&
-									p.lineupPos !== p.ratings.pos
-								: __SPORT === "baseball" && (pos === "D" || pos === "DP")
-									? rowLabels?.[i] !== undefined &&
-										rowLabels[i] !== "DH" &&
-										rowLabels[i] !== p.ratings.pos
-									: __SPORT !== "baseball" &&
-										p.pid >= 0 &&
-										pos !== "KR" &&
-										pos !== "PR" &&
-										!positions.includes(p.ratings.pos),
-					},
+			if (
+				__SPORT === "baseball" &&
+				pos === "D" &&
+				rowLabels?.[i]
+			) {
+				lineupPos =
+					rowLabels[i];
+			} else {
+				lineupPos =
+					p.lineupPos ??
+					p.ratings.pos;
+			}
+
+			return {
+				key: p.pid,
+				metadata: {
+					type: "player",
+					pid: p.pid,
+					season,
+					playoffs,
 				},
-				p.age,
-				...(__SPORT === "baseball" && pos !== "P"
-					? [
-							!challengeNoRatings && p.pid >= 0
-								? (p.ratings.ovrs[lineupPos] ?? p.ratings.ovr)
-								: null,
-							!challengeNoRatings && p.pid >= 0
-								? (p.ratings.pots[lineupPos] ?? p.ratings.pot)
-								: null,
-						]
-					: positions.flatMap((position) => [
-							{
-								value:
-									!challengeNoRatings && p.pid >= 0
-										? p.ratings.ovrs[position]
+				rowLabel:
+					rowLabels?.[i],
+				classNames: ({
+					isDragged,
+				}) => ({
+					separator:
+						!isDragged &&
+						((__SPORT ===
+							"baseball" &&
+							pos === "P" &&
+							i === 4) ||
+							(__SPORT ===
+								"baseball" &&
+								pos === "D" &&
+								i === 8) ||
+							(__SPORT ===
+								"baseball" &&
+								pos === "DP" &&
+								i === 7) ||
+							((i %
+								numStarters) +
+								1 ===
+								numStarters &&
+								i <
+									numLines *
+										numStarters &&
+								i !==
+									playersSorted.length -
+										1)),
+				}),
+				data: [
+					p.pid >= 0
+						? wrappedPlayerNameLabels(
+								{
+									pid: p.pid,
+									injury:
+										p.injury,
+									jerseyNumber:
+										p.stats
+											.jerseyNumber,
+									skills:
+										p.ratings
+											.skills,
+									defaultWatch:
+										p.watch,
+									firstName:
+										p.firstName,
+									firstNameShort:
+										p.firstNameShort,
+									lastName:
+										p.lastName,
+								},
+							)
+						: null,
+					{
+						value:
+							__SPORT ===
+								"baseball" &&
+							(pos === "D" ||
+								pos ===
+									"DP")
+								? p.ratings
+										.pos
+								: p.pid >= 0
+									? lineupPos
+									: p.pid ===
+										  -1
+										? "P"
 										: null,
-								classNames:
-									highlightPosOvr === position ? "table-primary" : undefined,
-							},
-							!challengeNoRatings && p.pid >= 0
-								? p.ratings.pots[position]
+						classNames: {
+							"text-danger":
+								__SPORT ===
+									"baseball" &&
+								p.lineupPos !==
+									undefined
+									? p.pid >=
+											0 &&
+										p.lineupPos !==
+											"DH" &&
+										p.lineupPos !==
+											p
+												.ratings
+												.pos
+									: __SPORT ===
+												"baseball" &&
+										  (pos ===
+												"D" ||
+												pos ===
+													"DP")
+										? rowLabels?.[
+												i
+											] !==
+												undefined &&
+											rowLabels[
+												i
+											] !==
+												"DH" &&
+											rowLabels[
+												i
+											] !==
+												p
+													.ratings
+													.pos
+										: __SPORT !==
+													"baseball" &&
+											  p.pid >=
+													0 &&
+											  pos !==
+													"KR" &&
+											  pos !==
+													"PR" &&
+											  !positions.includes(
+													p
+														.ratings
+														.pos,
+											  ),
+						},
+					},
+					p.age,
+					...(__SPORT ===
+						"baseball" &&
+					pos !== "P"
+						? [
+								!challengeNoRatings &&
+								p.pid >= 0
+									? (p
+											.ratings
+											.ovrs[
+											lineupPos
+										] ??
+										p
+											.ratings
+											.ovr)
+									: null,
+								!challengeNoRatings &&
+								p.pid >= 0
+									? (p
+											.ratings
+											.pots[
+											lineupPos
+										] ??
+										p
+											.ratings
+											.pot)
+									: null,
+							]
+						: positions.flatMap(
+								(
+									position,
+								) => [
+									{
+										value:
+											!challengeNoRatings &&
+											p.pid >=
+												0
+												? p
+														.ratings
+														.ovrs[
+														position
+													]
+												: null,
+										classNames:
+											highlightPosOvr ===
+											position
+												? "table-primary"
+												: undefined,
+									},
+									!challengeNoRatings &&
+									p.pid >=
+										0
+										? p
+												.ratings
+												.pots[
+												position
+											]
+										: null,
+								],
+							)),
+					...ratings.map(
+						(rating) => ({
+							value:
+								!challengeNoRatings &&
+								p.pid >= 0
+									? p
+											.ratings[
+											rating
+										]
+									: null,
+							classNames:
+								"table-accent",
+						}),
+					),
+					...stats.map(
+						(stat) =>
+							p.pid >= 0
+								? helpers.roundStat(
+										p
+											.stats[
+											stat
+										],
+										stat,
+									)
 								: null,
-						])),
-				...ratings.map((rating) => ({
-					value: !challengeNoRatings && p.pid >= 0 ? p.ratings[rating] : null,
-					classNames: "table-accent",
-				})),
-				...stats.map((stat) =>
-					p.pid >= 0 ? helpers.roundStat(p.stats[stat], stat) : null,
-				),
-			],
-		};
-	});
+					),
+				],
+			};
+		});
 
 	return (
 		<>
-			<MoreLinks type="team" page="depth" abbrev={abbrev} tid={tid} />
+			<MoreLinks
+				type="team"
+				page="depth"
+				abbrev={abbrev}
+				tid={tid}
+			/>
+
 			<p>
 				{__SPORT === "football" ? (
 					<>
-						Click or drag row handles to move players between the starting
-						lineup <span className="table-info legend-square" /> and the bench{" "}
-						<span className="table-secondary legend-square" />.
+						Click or drag row handles
+						to move players between the
+						starting lineup{" "}
+						<span className="table-info legend-square" />{" "}
+						and the bench{" "}
+						<span className="table-secondary legend-square" />
+						.
 					</>
 				) : null}
+
 				{__SPORT === "hockey"
 					? "There are four lines of forwards (centers and wings) and three lines of defensive players. The top lines play the most. All the players in a line will generally play together, but when injuries or other disruptions occur, a player will be moved up from below."
 					: null}
@@ -390,34 +612,77 @@ const Depth = ({
 
 			<ul
 				className={`nav nav-tabs mb-3 ${
-					__SPORT === "baseball" ? "" : "d-none d-sm-flex"
+					__SPORT === "baseball"
+						? ""
+						: "d-none d-sm-flex"
 				}`}
 			>
-				{Object.keys(numStartersByPos).map((pos2) => {
+				{Object.keys(
+					numStartersByPos,
+				).map((pos2) => {
 					if (
-						(showDH === "noDH" && (pos2 === "L" || pos2 === "D")) ||
-						(showDH === "dh" && (pos2 === "LP" || pos2 === "DP"))
+						(showDH ===
+							"noDH" &&
+							(pos2 ===
+								"L" ||
+								pos2 ===
+									"D")) ||
+						(showDH ===
+							"dh" &&
+							(pos2 ===
+								"LP" ||
+								pos2 ===
+									"DP"))
 					) {
 						return null;
 					}
 
-					let text = posNames ? posNames[pos2] : pos2;
+					let text =
+						posNames
+							? posNames[
+									pos2
+								]
+							: pos2;
+
 					if (
-						__SPORT === "baseball" &&
+						__SPORT ===
+							"baseball" &&
 						posNames &&
-						showDH === "noDH" &&
-						(pos2 === "DP" || pos2 === "LP")
+						showDH ===
+							"noDH" &&
+						(pos2 === "DP" ||
+							pos2 === "LP")
 					) {
-						text = posNames[pos2.slice(0, 1)];
+						text =
+							posNames[
+								pos2.slice(
+									0,
+									1,
+								)
+							];
 					}
 
 					return (
-						<li className="nav-item" key={pos2}>
+						<li
+							className="nav-item"
+							key={pos2}
+						>
 							<a
-								className={clsx("nav-link", {
-									active: pos === pos2,
-								})}
-								href={helpers.leagueUrl(["depth", pos2, `${abbrev}_${tid}`])}
+								className={clsx(
+									"nav-link",
+									{
+										active:
+											pos ===
+											pos2,
+									},
+								)}
+								href={helpers.leagueUrl(
+									[
+										"depth",
+										pos2,
+										`${abbrev}_${tid}`,
+									],
+								)}
 							>
 								{text}
 							</a>
@@ -431,116 +696,290 @@ const Depth = ({
 					<div className="d-flex gap-2 mb-2">
 						<button
 							className="btn btn-secondary"
-							onClick={() => handleAutoSort(pos)}
+							onClick={() =>
+								handleAutoSort(
+									pos,
+								)
+							}
 						>
-							Auto sort {posNames ? lowerCaseWords(posNames[pos]!) : pos}
+							Auto sort{" "}
+							{posNames
+								? lowerCaseWords(
+										posNames[
+											pos
+										]!,
+									)
+								: pos}
 						</button>
-						<button className="btn btn-secondary" onClick={handleAutoSortAll}>
+
+						<button
+							className="btn btn-secondary"
+							onClick={
+								handleAutoSortAll
+							}
+						>
 							Auto sort all
 						</button>
 					</div>
+
 					<div className="form-check mb-3">
 						<input
 							className="form-check-input"
 							type="checkbox"
-							checked={keepRosterSorted}
+							checked={
+								keepRosterSorted
+							}
 							id="ai-sort-user-roster"
 							onChange={async () => {
-								if (!keepRosterSorted) {
+								if (
+									!keepRosterSorted
+								) {
 									await handleAutoSortAll();
 								}
-								await toWorker("main", "updateKeepRosterSorted", {
-									tid,
-									keepRosterSorted: !keepRosterSorted,
-								});
+
+								await toWorker(
+									"main",
+									"updateKeepRosterSorted",
+									{
+										tid,
+										keepRosterSorted:
+											!keepRosterSorted,
+									},
+								);
 							}}
 						/>
-						<label className="form-check-label" htmlFor="ai-sort-user-roster">
+
+						<label
+							className="form-check-label"
+							htmlFor="ai-sort-user-roster"
+						>
 							Keep all auto sorted
 						</label>
 					</div>
 				</>
 			) : null}
-   			{__SPORT === "football" && pos === "OL" ? (
+
+			{__SPORT === "football" &&
+			pos === "OL" ? (
 				<div className="alert alert-info d-inline-block">
-					The first five offensive line slots are LT, LG, C, RG, and RT.
-					Auto sort chooses the strongest five-man combination based on
-					each player's functional role ratings. Dragging players between
-					these slots manually changes their assigned offensive line role.
-				</div>
-			) : null}
-			{__SPORT === "hockey" && pos === "F" ? (
-				<div className="alert alert-info d-inline-block">
-					Each line of forwards is made up of one center and two wings. The
-					center is the first of the three players in each line.
+					The first five offensive line
+					slots are LT, LG, C, RG, and RT.
+					Auto sort chooses the strongest
+					five-man combination based on
+					each player's functional role
+					ratings. Dragging players between
+					these slots manually changes
+					their assigned offensive line
+					role.
 				</div>
 			) : null}
 
-			{__SPORT === "hockey" && pos === "G" ? (
+			{__SPORT === "football" &&
+			pos === "WR" ? (
+				<div className="alert alert-info d-inline-block">
+					The first three receiver slots
+					are X, Z, and Slot. Auto sort
+					chooses the strongest three-man
+					combination based on each
+					player's functional role
+					ratings. Two-receiver formations
+					use the X and Z, while
+					three-receiver formations add
+					the Slot receiver.
+				</div>
+			) : null}
+
+			{__SPORT === "hockey" &&
+			pos === "F" ? (
+				<div className="alert alert-info d-inline-block">
+					Each line of forwards is made
+					up of one center and two wings.
+					The center is the first of the
+					three players in each line.
+				</div>
+			) : null}
+
+			{__SPORT === "hockey" &&
+			pos === "G" ? (
 				<div className="alert alert-info">
-					During the regular season, your starting goalie will automatically get
-					some rest days. Rest days are based on how many consecutive games your
-					starting goalie has played and how good your backup is. If your backup
-					is very bad, your starter will start more games, but{" "}
-					{helpers.pronoun(gender, "his")} performance will suffer.
+					During the regular season, your
+					starting goalie will
+					automatically get some rest
+					days. Rest days are based on how
+					many consecutive games your
+					starting goalie has played and
+					how good your backup is. If your
+					backup is very bad, your starter
+					will start more games, but{" "}
+					{helpers.pronoun(
+						gender,
+						"his",
+					)}{" "}
+					performance will suffer.
 				</div>
 			) : null}
 
-			{__SPORT === "baseball" && pos === "L" ? (
+			{__SPORT === "baseball" &&
+			pos === "L" ? (
 				<div className="alert alert-info d-inline-block">
-					To move players in and out of the starting lineup, switch to the{" "}
-					<a href={helpers.leagueUrl(["depth", "D", `${abbrev}_${tid}`])}>
+					To move players in and out of
+					the starting lineup, switch to
+					the{" "}
+					<a
+						href={helpers.leagueUrl(
+							[
+								"depth",
+								"D",
+								`${abbrev}_${tid}`,
+							],
+						)}
+					>
 						Defense tab
 					</a>
 					.
 				</div>
 			) : null}
 
-			{__SPORT === "baseball" && pos === "LP" ? (
+			{__SPORT === "baseball" &&
+			pos === "LP" ? (
 				<div className="alert alert-info d-inline-block">
-					To move players in and out of the starting lineup, switch to the{" "}
-					<a href={helpers.leagueUrl(["depth", "DP", `${abbrev}_${tid}`])}>
+					To move players in and out of
+					the starting lineup, switch to
+					the{" "}
+					<a
+						href={helpers.leagueUrl(
+							[
+								"depth",
+								"DP",
+								`${abbrev}_${tid}`,
+							],
+						)}
+					>
 						Defense tab
 					</a>
 					.
 				</div>
 			) : null}
 
-			<div style={editable ? { marginTop: -16 } : undefined}>
+			<div
+				style={
+					editable
+						? {
+								marginTop:
+									-16,
+							}
+						: undefined
+				}
+			>
 				<DataTable
 					cols={cols}
 					defaultSort="disableSort"
-					// Different value for baseball is because that uses showRowLabels, which adds an extra column
-					defaultStickyCols={window.mobile ? 0 : __SPORT === "baseball" ? 3 : 2}
+					defaultStickyCols={
+						window.mobile
+							? 0
+							: __SPORT ===
+								  "baseball"
+								? 3
+								: 2
+					}
 					name={`Depth${pos}`}
 					rows={rows}
-					hideAllControls={editable}
+					hideAllControls={
+						editable
+					}
 					nonfluid
-					showRowLabels={!!rowLabels}
+					showRowLabels={
+						!!rowLabels
+					}
 					sortableRows={
 						editable
 							? {
-									highlightHandle: ({ index }) =>
-										index < numStarters * numLines,
-									onChange: async ({ oldIndex, newIndex }) => {
-										const pids = players.map((p) => p.pid);
-										const newSortedPids = arrayMove(pids, oldIndex, newIndex);
-										setSortedPids(newSortedPids);
-										await toWorker("main", "reorderDepthDrag", {
-											pos,
-											sortedPids: getIDsToSave(newSortedPids),
-										});
-									},
-									onSwap: async (index1, index2) => {
-										const newSortedPids = players.map((p) => p.pid);
-										newSortedPids[index1] = players[index2].pid;
-										newSortedPids[index2] = players[index1].pid;
-										setSortedPids(newSortedPids);
-										await toWorker("main", "reorderDepthDrag", {
-											pos,
-											sortedPids: getIDsToSave(newSortedPids),
-										});
-									},
+									highlightHandle:
+										({
+											index,
+										}) =>
+											index <
+											numStarters *
+												numLines,
+									onChange:
+										async ({
+											oldIndex,
+											newIndex,
+										}) => {
+											const pids =
+												players.map(
+													(
+														p,
+													) =>
+														p.pid,
+												);
+
+											const newSortedPids =
+												arrayMove(
+													pids,
+													oldIndex,
+													newIndex,
+												);
+
+											setSortedPids(
+												newSortedPids,
+											);
+
+											await toWorker(
+												"main",
+												"reorderDepthDrag",
+												{
+													pos,
+													sortedPids:
+														getIDsToSave(
+															newSortedPids,
+														),
+												},
+											);
+										},
+									onSwap:
+										async (
+											index1,
+											index2,
+										) => {
+											const newSortedPids =
+												players.map(
+													(
+														p,
+													) =>
+														p.pid,
+												);
+
+											newSortedPids[
+												index1
+											] =
+												players[
+													index2
+												].pid;
+
+											newSortedPids[
+												index2
+											] =
+												players[
+													index1
+												].pid;
+
+											setSortedPids(
+												newSortedPids,
+											);
+
+											await toWorker(
+												"main",
+												"reorderDepthDrag",
+												{
+													pos,
+													sortedPids:
+														getIDsToSave(
+															newSortedPids,
+														),
+												},
+											);
+										},
 								}
 							: undefined
 					}
