@@ -10,7 +10,9 @@ import type {
 	PlayerFiltered,
 } from "../../../common/types.ts";
 import { last } from "../../../common/utils.ts";
-import roleOvr from "../player/roleOvr.football.ts";
+import roleOvr, {
+	type FunctionalRole,
+} from "../player/roleOvr.football.ts";
 
 const score = (
 	p: PlayerFiltered,
@@ -41,107 +43,111 @@ const sortByPositionScore = (
 	});
 };
 
-const OL_ROLES = [
+const OL_ROLES: FunctionalRole[] = [
 	"LT",
 	"LG",
 	"C",
 	"RG",
 	"RT",
-] as const;
+];
 
-type OLRole = (typeof OL_ROLES)[number];
+const WR_ROLES: FunctionalRole[] = [
+	"WR_X",
+	"WR_Z",
+	"WR_SLOT",
+];
 
-const getOlRoleScores = (
-	p: PlayerFiltered,
-): Record<OLRole, number> => {
-	return {
-		LT: roleOvr(p.ratings as any, "LT"),
-		LG: roleOvr(p.ratings as any, "LG"),
-		C: roleOvr(p.ratings as any, "C"),
-		RG: roleOvr(p.ratings as any, "RG"),
-		RT: roleOvr(p.ratings as any, "RT"),
-	};
-};
-
-const genOlDepth = (
+/*
+ * Build a depth chart where the first several players
+ * correspond to specific functional roles.
+ *
+ * This is a maximum-total-score assignment rather than
+ * a greedy role-by-role sort.
+ *
+ * That matters because the best player at one role may
+ * be even more valuable at another role.
+ */
+const genFunctionalRoleDepth = (
 	players: PlayerFiltered[],
+	pos: Position,
+	roles: FunctionalRole[],
+	maxCandidates: number,
 ): number[] => {
-	/*
-	 * Football GM traditionally treats OL as one generic
-	 * position. Our realism system assigns the five starting
-	 * linemen to LT/LG/C/RG/RT based on role OVR.
-	 *
-	 * The returned order is:
-	 *
-	 * 0 = LT
-	 * 1 = LG
-	 * 2 = C
-	 * 3 = RG
-	 * 4 = RT
-	 *
-	 * Everyone after that remains a generic OL backup for now.
-	 */
-
-	const listedOl = players.filter(
-		(p) => p.ratings.pos === "OL",
+	const listedPlayers = players.filter(
+		(p) => p.ratings.pos === pos,
 	);
 
-	/*
-	 * Normally a team should have enough real OL candidates.
-	 * If it doesn't, allow emergency players into the search.
-	 */
 	let candidatePool: PlayerFiltered[];
 
-	if (listedOl.length >= 5) {
-		candidatePool = listedOl;
+	/*
+	 * Prefer actual players at the requested position.
+	 *
+	 * If the roster does not contain enough of them,
+	 * allow emergency out-of-position candidates.
+	 */
+	if (listedPlayers.length >= roles.length) {
+		candidatePool = listedPlayers;
 	} else {
 		const emergencyPlayers =
 			sortByPositionScore(
 				players.filter(
-					(p) => p.ratings.pos !== "OL",
+					(p) => p.ratings.pos !== pos,
 				),
-				"OL",
+				pos,
 			);
 
 		candidatePool = [
-			...listedOl,
+			...listedPlayers,
 			...emergencyPlayers.slice(
 				0,
-				10 - listedOl.length,
+				Math.max(
+					0,
+					maxCandidates -
+						listedPlayers.length,
+				),
 			),
 		];
 	}
 
-	if (candidatePool.length < 5) {
+	if (candidatePool.length < roles.length) {
 		return sortByPositionScore(
 			players,
-			"OL",
+			pos,
 		).map((p) => p.pid);
 	}
 
 	/*
-	 * Precompute every candidate's LT/LG/C/RG/RT ratings.
-	 * This keeps the lineup search fast.
+	 * Precompute every candidate's functional role OVR.
 	 */
 	const roleScores = new Map<
 		number,
-		Record<OLRole, number>
+		Map<FunctionalRole, number>
 	>();
 
 	for (const p of candidatePool) {
+		const scores =
+			new Map<FunctionalRole, number>();
+
+		for (const role of roles) {
+			scores.set(
+				role,
+				roleOvr(
+					p.ratings as any,
+					role,
+				),
+			);
+		}
+
 		roleScores.set(
 			p.pid,
-			getOlRoleScores(p),
+			scores,
 		);
 	}
 
 	/*
-	 * If a roster somehow contains a huge number of OL,
-	 * limit the optimization pool to the 12 most useful
-	 * candidates.
-	 *
-	 * Twelve players still gives us more than enough room
-	 * for realistic competition while keeping auto-sort fast.
+	 * Keep the optimization pool small enough for fast
+	 * roster auto-sorting while retaining plenty of
+	 * realistic competition.
 	 */
 	candidatePool = [...candidatePool]
 		.sort((a, b) => {
@@ -151,14 +157,16 @@ const genOlDepth = (
 				roleScores.get(b.pid)!;
 
 			const aBest = Math.max(
-				...OL_ROLES.map(
-					(role) => aScores[role],
+				...roles.map(
+					(role) =>
+						aScores.get(role)!,
 				),
 			);
 
 			const bBest = Math.max(
-				...OL_ROLES.map(
-					(role) => bScores[role],
+				...roles.map(
+					(role) =>
+						bScores.get(role)!,
 				),
 			);
 
@@ -168,38 +176,32 @@ const genOlDepth = (
 
 			return bBest - aBest;
 		})
-		.slice(0, 12);
+		.slice(0, maxCandidates);
 
 	let bestScore = -Infinity;
-	let bestStarters: PlayerFiltered[] = [];
 
-	const currentStarters: PlayerFiltered[] = [];
-	const usedPids = new Set<number>();
+	let bestStarters:
+		PlayerFiltered[] = [];
+
+	const currentStarters:
+		PlayerFiltered[] = [];
+
+	const usedPids =
+		new Set<number>();
 
 	/*
-	 * Search every valid five-man combination.
+	 * Search every valid role assignment.
 	 *
-	 * This is intentionally not a simple greedy algorithm.
-	 *
-	 * Example:
-	 * Player A: LT 90, LG 89
-	 * Player B: LT 88, LG 70
-	 *
-	 * A greedy system might put Player A at LT and waste
-	 * Player B. The optimal lineup is:
-	 *
-	 * B at LT
-	 * A at LG
-	 *
-	 * This search finds that better combination.
+	 * A player may occupy only one role.
 	 */
 	const search = (
 		roleIndex: number,
 		totalScore: number,
 	) => {
-		if (roleIndex === OL_ROLES.length) {
+		if (roleIndex === roles.length) {
 			if (totalScore > bestScore) {
 				bestScore = totalScore;
+
 				bestStarters =
 					currentStarters.slice();
 			}
@@ -207,7 +209,8 @@ const genOlDepth = (
 			return;
 		}
 
-		const role = OL_ROLES[roleIndex];
+		const role =
+			roles[roleIndex]!;
 
 		for (const p of candidatePool) {
 			if (usedPids.has(p.pid)) {
@@ -221,12 +224,20 @@ const genOlDepth = (
 				continue;
 			}
 
+			const roleScore =
+				scores.get(role);
+
+			if (roleScore === undefined) {
+				continue;
+			}
+
 			usedPids.add(p.pid);
 			currentStarters.push(p);
 
 			search(
 				roleIndex + 1,
-				totalScore + scores[role],
+				totalScore +
+					roleScore,
 			);
 
 			currentStarters.pop();
@@ -236,39 +247,92 @@ const genOlDepth = (
 
 	search(0, 0);
 
-	/*
-	 * Something extremely strange happened if we couldn't
-	 * construct five starters, so fall back to the old
-	 * generic OL ranking.
-	 */
-	if (bestStarters.length !== 5) {
+	if (
+		bestStarters.length !==
+		roles.length
+	) {
 		return sortByPositionScore(
 			players,
-			"OL",
+			pos,
 		).map((p) => p.pid);
 	}
 
-	const starterPids = new Set(
-		bestStarters.map((p) => p.pid),
-	);
+	const starterPids =
+		new Set(
+			bestStarters.map(
+				(p) => p.pid,
+			),
+		);
 
 	/*
-	 * Keep backups after the five starters.
-	 * For now backups use Football GM's traditional generic
-	 * OL score. Later we'll add swing tackle/interior backup
-	 * logic and position-specific substitutions.
+	 * Role-specific starters come first.
+	 *
+	 * Everyone afterward remains in traditional
+	 * generic positional order for now.
 	 */
-	const backups = sortByPositionScore(
-		players.filter(
-			(p) => !starterPids.has(p.pid),
-		),
-		"OL",
-	);
+	const backups =
+		sortByPositionScore(
+			players.filter(
+				(p) =>
+					!starterPids.has(
+						p.pid,
+					),
+			),
+			pos,
+		);
 
 	return [
-		...bestStarters.map((p) => p.pid),
-		...backups.map((p) => p.pid),
+		...bestStarters.map(
+			(p) => p.pid,
+		),
+		...backups.map(
+			(p) => p.pid,
+		),
 	];
+};
+
+const genOlDepth = (
+	players: PlayerFiltered[],
+): number[] => {
+	/*
+	 * First five:
+	 *
+	 * LT
+	 * LG
+	 * C
+	 * RG
+	 * RT
+	 */
+	return genFunctionalRoleDepth(
+		players,
+		"OL",
+		OL_ROLES,
+		12,
+	);
+};
+
+const genWrDepth = (
+	players: PlayerFiltered[],
+): number[] => {
+	/*
+	 * First three:
+	 *
+	 * X
+	 * Z
+	 * Slot
+	 *
+	 * Three-WR formations use all three.
+	 *
+	 * Two-WR formations use X and Z.
+	 *
+	 * One-WR formations use the X receiver.
+	 */
+	return genFunctionalRoleDepth(
+		players,
+		"WR",
+		WR_ROLES,
+		10,
+	);
 };
 
 const genDepth = async (
@@ -292,41 +356,57 @@ const genDepth = async (
 	pos?: Position,
 ) => {
 	if (initialDepth === undefined) {
-		throw new Error("Missing depth");
+		throw new Error(
+			"Missing depth",
+		);
 	}
 
 	const depth =
-		helpers.deepCopy(initialDepth);
+		helpers.deepCopy(
+			initialDepth,
+		);
 
-	let players;
+	let players: PlayerFiltered[];
 
 	/*
 	 * Can't use getCopies in exhibition games.
-	 * Exhibition games also intentionally ignore fuzz.
+	 *
+	 * Exhibition games intentionally ignore fuzz.
 	 */
-	if (local.exhibitionGamePlayers) {
-		players = playersRaw.map((p) => {
-			const ratings = last(p.ratings);
+	if (
+		local.exhibitionGamePlayers
+	) {
+		players =
+			playersRaw.map((p) => {
+				const ratings =
+					last(p.ratings);
 
-			return {
-				pid: p.pid,
-				ratings,
-			};
-		});
+				return {
+					pid: p.pid,
+					ratings,
+				};
+			});
 	} else {
 		players =
 			await idb.getCopies.playersPlus(
 				playersRaw,
 				{
-					attrs: ["pid"],
+					attrs: [
+						"pid",
+					],
 					ratings: [
 						"pos",
 						"ovrs",
 						...RATINGS,
 					],
-					season: g.get("season"),
-					showNoStats: true,
-					showRookies: true,
+					season:
+						g.get(
+							"season",
+						),
+					showNoStats:
+						true,
+					showRookies:
+						true,
 					fuzz: true,
 				},
 			);
@@ -337,50 +417,61 @@ const genDepth = async (
 		: POSITIONS;
 
 	for (const pos2 of positions) {
-				if (onlyNewPlayers) {
+		if (onlyNewPlayers) {
 			/*
-			 * Identify players not currently in the depth
-			 * chart and add them above players they are
-			 * better than without otherwise disturbing the
-			 * user's custom depth chart.
-			 *
-			 * We deliberately preserve this behavior for now.
-			 * Functional-role optimization occurs during a
-			 * full depth-chart generation/auto-sort.
+			 * Add new players without otherwise
+			 * disturbing the user's custom depth chart.
 			 */
 			const playersNotInDepth =
 				players.filter(
 					(p) =>
-						!depth[pos2].includes(
+						!depth[
+							pos2
+						].includes(
 							p.pid,
 						),
 				);
 
 			for (
-				const p of playersNotInDepth
+				const p of
+					playersNotInDepth
 			) {
 				const pScore =
-					score(p, pos2);
+					score(
+						p,
+						pos2,
+					);
 
 				let added = false;
 
 				for (
 					let i = 0;
-					i < depth[pos2].length;
+					i <
+					depth[
+						pos2
+					].length;
 					i++
 				) {
-					const p2 = players.find(
-						(p3) =>
-							p3.pid ===
-							depth[pos2][i],
-					);
+					const p2 =
+						players.find(
+							(p3) =>
+								p3.pid ===
+								depth[
+									pos2
+								][i],
+						);
 
 					if (
 						!p2 ||
 						pScore >
-							score(p2, pos2)
+							score(
+								p2,
+								pos2,
+							)
 					) {
-						depth[pos2].splice(
+						depth[
+							pos2
+						].splice(
 							i,
 							0,
 							p.pid,
@@ -392,31 +483,36 @@ const genDepth = async (
 				}
 
 				if (!added) {
-					depth[pos2].push(
+					depth[
+						pos2
+					].push(
 						p.pid,
 					);
 				}
 			}
-		} else if (pos2 === "OL") {
-			/*
-			 * REALISM OVERHAUL:
-			 *
-			 * Build an actual five-man offensive line:
-			 *
-			 * LT / LG / C / RG / RT
-			 */
+		} else if (
+			pos2 === "OL"
+		) {
 			depth.OL =
-				genOlDepth(players);
+				genOlDepth(
+					players,
+				);
+		} else if (
+			pos2 === "WR"
+		) {
+			depth.WR =
+				genWrDepth(
+					players,
+				);
 		} else {
-			/*
-			 * Original Football GM depth-chart behavior for
-			 * every position we have not overhauled yet.
-			 */
 			depth[pos2] =
 				sortByPositionScore(
 					players,
 					pos2,
-				).map((p) => p.pid);
+				).map(
+					(p) =>
+						p.pid,
+				);
 		}
 	}
 
