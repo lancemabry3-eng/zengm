@@ -250,6 +250,13 @@ const Depth = ({
 			"Z",
 			"Slot",
 		];
+	} else if (__SPORT === "football" && pos === "LB") {
+		rowLabels = [
+			"MIKE",
+			"WILL",
+			"SAM",
+			"EDGE",
+		];
 	} else if (__SPORT === "football" && pos === "CB") {
 		rowLabels = [
 			"Outside",
@@ -632,6 +639,16 @@ const Depth = ({
 					based on each player's functional role ratings.
 					Two-receiver formations use the X and Z, while
 					three-receiver formations add the Slot receiver.
+				</div>
+			) : null}
+
+			{__SPORT === "football" && pos === "LB" ? (
+				<div className="alert alert-info d-inline-block">
+					The first four linebacker slots are MIKE, WILL, SAM,
+					and EDGE. Two-linebacker packages use MIKE and WILL.
+					Three-linebacker packages add SAM, while four-linebacker
+					packages add the EDGE linebacker. Auto sort assigns
+					players based on their functional role ratings.
 				</div>
 			) : null}
 
