@@ -599,41 +599,43 @@ const updatePlayer = async (
 
 		const leaders = await player.getLeaders(topStuff.pRaw);
 
-let functionalRoles;
+		let functionalRoles;
 
-if (__SPORT === "football") {
-	const currentRatings = p.ratings.at(-1);
+		if (__SPORT === "football") {
+			const currentRatings = p.ratings.at(-1);
 
-	if (currentRatings) {
-		functionalRoles = Object.entries(
-			getRoleOvrs(currentRatings as any),
-		)
-			.flatMap(([role, ovr]) => {
-				if (ovr === undefined) {
-					return [];
-				}
+			if (currentRatings) {
+				functionalRoles = Object.entries(
+					getRoleOvrs(currentRatings as any),
+				)
+					.flatMap(([role, ovr]) => {
+						if (ovr === undefined) {
+							return [];
+						}
 
-				const functionalRole = role as FunctionalRole;
+						const functionalRole = role as FunctionalRole;
 
-				return [
-					{
-						role: functionalRole,
-						label: FUNCTIONAL_ROLE_LABELS[functionalRole],
-						ovr,
-					},
-				];
-			})
-			.sort((a, b) => b.ovr - a.ovr);
+						return [
+							{
+								role: functionalRole,
+								label: FUNCTIONAL_ROLE_LABELS[functionalRole],
+								ovr,
+							},
+						];
+					})
+					.sort((a, b) => b.ovr - a.ovr);
+			}
+		}
+
+		return {
+			...topStuff,
+			events,
+			feats,
+			functionalRoles,
+			leaders,
+			ratings: RATINGS,
+		};
 	}
-}
-
-return {
-	...topStuff,
-	events,
-	feats,
-	functionalRoles,
-	leaders,
-	ratings: RATINGS,
 };
 
 export default updatePlayer;
