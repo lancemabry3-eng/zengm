@@ -2202,12 +2202,68 @@ class GameSim extends GameSimBase {
 		return randInt(3, 8);
 	}
 
-	probSack(qb: PlayerGameSim) {
+		probSack(
+		qb: PlayerGameSim,
+		pbw?: Map<
+			PlayerGameSim,
+			{ type: "OL" | "Other"; won: boolean }
+		>,
+	) {
+		let pressureFactor = 1;
+
+		if (pbw) {
+			const ol =
+				this.playersOnField[this.o].OL ?? [];
+
+			/*
+			 * Pressure from the edges is slightly more
+			 * dangerous than pressure through the interior.
+			 *
+			 * OL order:
+			 * 0 LT
+			 * 1 LG
+			 * 2 C
+			 * 3 RG
+			 * 4 RT
+			 */
+			const pressureWeights = [
+				1.15,
+				0.95,
+				0.9,
+				0.95,
+				1.1,
+			];
+
+			let weightedLosses = 0;
+
+			for (const [p, { type, won }] of pbw) {
+				if (type !== "OL" || won) {
+					continue;
+				}
+
+				const slotIndex = ol.indexOf(p);
+
+				weightedLosses +=
+					pressureWeights[slotIndex] ?? 1;
+			}
+
+			/*
+			 * Roughly centers the normal result around 1.
+			 *
+			 * Clean pocket: substantially lower sack chance.
+			 * Several lost blocks: substantially higher.
+			 */
+			pressureFactor =
+				0.55 + 0.18 * weightedLosses;
+		}
+
 		return (
-			((0.06 * this.team[this.d].compositeRating.passRushing) /
+			((0.06 *
+				this.team[this.d].compositeRating.passRushing) /
 				(0.5 *
 					(qb.compositeRating.avoidingSacks +
 						this.team[this.o].compositeRating.passBlocking))) *
+			pressureFactor *
 			g.get("sackFactor")
 		);
 	}
@@ -2300,19 +2356,26 @@ class GameSim extends GameSimBase {
 			}
 		};
 
-		// OL always block, TE and RB sometimes do
+				// OL always block, TE and RB sometimes do.
+		// The five OL entries are ordered LT/LG/C/RG/RT.
+		// Tackles face slightly tougher pass-protection assignments
+		// because edge rushers have more space to work with.
 		const ol = this.playersOnField[o].OL;
 		if (ol) {
-			for (const p of ol) {
-				addBlockAttempt(p, "OL", 1);
-			}
-		}
-		const te = this.playersOnField[o].TE;
-		if (te) {
-			for (const p of te) {
-				if (Math.random() < 0.1) {
-					addBlockAttempt(p, "Other", 0.75);
-				}
+			const passBlockBaselines = [
+				1.03, // LT
+				0.99, // LG
+				0.98, // C
+				0.99, // RG
+				1.02, // RT
+			];
+
+			for (let i = 0; i < ol.length; i++) {
+				addBlockAttempt(
+					ol[i]!,
+					"OL",
+					passBlockBaselines[i] ?? 1,
+				);
 			}
 		}
 		const rb = this.playersOnField[o].RB;
@@ -2343,7 +2406,8 @@ class GameSim extends GameSimBase {
 			return dt + this.doFumble(qb, yds);
 		}
 
-		const sack = Math.random() < this.probSack(qb);
+				const sack =
+			Math.random() < this.probSack(qb, pbw);
 
 		if (sack) {
 			return this.doSack(qb, pbw);
