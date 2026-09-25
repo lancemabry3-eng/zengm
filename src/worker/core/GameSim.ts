@@ -6,6 +6,7 @@ import GameSimBaseball from "./GameSim.baseball/index.ts";
 import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
 import {
+	getBaseDefensiveFront,
 	getFormationDepth,
 } from "./GameSim.football/getPlayers.ts";
 import GameSimFootball from "./GameSim.football/index.ts";
@@ -30,6 +31,61 @@ const footballFatigue = (
 	}
 
 	return energy;
+};
+
+const applyBaseDefensiveFront = (
+	formation: Formation,
+	defense: GameSimFootball["team"][number],
+): Formation => {
+	const defensiveFront =
+		getBaseDefensiveFront(
+			defense,
+		);
+
+	if (
+		defensiveFront ===
+		"BASE_3_4"
+	) {
+		return {
+			...formation,
+			defensiveFront,
+			def: {
+				DL: 3,
+				LB: 4,
+				CB: 2,
+				S: 2,
+			},
+		};
+	}
+
+	return {
+		...formation,
+		defensiveFront,
+		def: {
+			DL: 4,
+			LB: 3,
+			CB: 2,
+			S: 2,
+		},
+	};
+};
+
+const getNormalFormation = (
+	formation: Formation,
+	defense: GameSimFootball["team"][number],
+): Formation => {
+	if (
+		formation
+			.offensivePersonnel ===
+		"11"
+	) {
+		return formation;
+	}
+
+	return applyBaseDefensiveFront(
+		formation,
+		defense,
+	);
 };
 
 /*
@@ -57,18 +113,57 @@ class GameSimFootballRealism extends GameSimFootball {
 		let formation: Formation;
 
 		if (
-			playType === "starters" ||
-			playType === "startersFake"
+			playType === "starters"
 		) {
+			/*
+			 * Record defensive starters from the team's actual
+			 * base front rather than treating nickel as its
+			 * permanent starting defense.
+			 *
+			 * Offense still uses the existing 11-personnel
+			 * starter grouping.
+			 */
+			formation =
+				applyBaseDefensiveFront(
+					formations.normal[
+						0
+					]!,
+					this.team[
+						this.d
+					],
+				);
+		} else if (
+			playType ===
+			"startersFake"
+		) {
+			/*
+			 * probPass() uses this synthetic look to compare
+			 * pass/run talent. Keep the existing 11-personnel
+			 * versus nickel baseline for that calculation.
+			 */
 			formation =
 				formations.normal[0]!;
 		} else if (
 			playType === "run" ||
 			playType === "pass"
 		) {
-			formation =
+			const offensiveFormation =
 				choice(
 					formations.normal,
+				);
+
+			/*
+			 * 11 personnel forces the defense into nickel.
+			 *
+			 * Heavier 21/22 personnel is answered by the
+			 * defense's own inferred base 3-4 or 4-3 scheme.
+			 */
+			formation =
+				getNormalFormation(
+					offensiveFormation,
+					this.team[
+						this.d
+					],
 				);
 		} else if (
 			playType === "extraPoint" ||
