@@ -8,11 +8,14 @@ import formations from "./GameSim.football/formations.ts";
 import {
 	getBaseDefensiveFront,
 	getFormationDepth,
+	getOffensivePersonnelFit,
 } from "./GameSim.football/getPlayers.ts";
 import GameSimFootball from "./GameSim.football/index.ts";
 import type {
 	Formation,
+	OffensivePersonnel,
 	PlayerGameSim,
+	TeamGameSim,
 } from "./GameSim.football/types.ts";
 import GameSimHockey from "./GameSim.hockey/index.ts";
 
@@ -88,6 +91,188 @@ const getNormalFormation = (
 	);
 };
 
+const getPersonnelSituationWeight = (
+	personnel: OffensivePersonnel,
+	playType: "run" | "pass",
+	down: number,
+	toGo: number,
+	scrimmage: number,
+): number => {
+	let weight: number;
+
+	if (playType === "pass") {
+		if (personnel === "11") {
+			weight = 5.5;
+		} else if (personnel === "21") {
+			weight = 2.25;
+		} else {
+			weight = 0.75;
+		}
+	} else {
+		if (personnel === "11") {
+			weight = 2.5;
+		} else if (personnel === "21") {
+			weight = 4;
+		} else {
+			weight = 3;
+		}
+	}
+
+	/*
+	 * Short yardage invites heavier personnel.
+	 */
+	if (toGo <= 2) {
+		if (personnel === "11") {
+			weight *= 0.75;
+		} else if (personnel === "21") {
+			weight *= 1.25;
+		} else {
+			weight *= 1.6;
+		}
+	}
+
+	/*
+	 * Longer yardage pushes the offense toward 11 personnel.
+	 */
+	if (toGo >= 7) {
+		if (personnel === "11") {
+			weight *= 1.55;
+		} else if (personnel === "21") {
+			weight *= 0.8;
+		} else {
+			weight *= 0.55;
+		}
+	}
+
+	/*
+	 * Obvious passing downs lean further toward spread skill
+	 * personnel, without completely eliminating heavier sets.
+	 */
+	if (
+		down >= 3 &&
+		toGo >= 5
+	) {
+		if (personnel === "11") {
+			weight *= 1.5;
+		} else if (personnel === "21") {
+			weight *= 0.75;
+		} else {
+			weight *= 0.45;
+		}
+	}
+
+	/*
+	 * Inside the opponent's five, power personnel becomes
+	 * significantly more attractive.
+	 */
+	if (scrimmage >= 95) {
+		if (personnel === "11") {
+			weight *= 0.7;
+		} else if (personnel === "21") {
+			weight *= 1.25;
+		} else {
+			weight *= 1.75;
+		}
+	}
+
+	return weight;
+};
+
+const chooseOffensiveFormation = (
+	offense: TeamGameSim,
+	playType: "run" | "pass",
+	down: number,
+	toGo: number,
+	scrimmage: number,
+): Formation => {
+	const fits = new Map<
+		OffensivePersonnel,
+		number
+	>();
+
+	for (const formation of formations.normal) {
+		const personnel =
+			formation.offensivePersonnel;
+
+		if (personnel === undefined) {
+			continue;
+		}
+
+		const fit =
+			getOffensivePersonnelFit(
+				offense,
+				personnel,
+			);
+
+		if (fit !== undefined) {
+			fits.set(
+				personnel,
+				fit,
+			);
+		}
+	}
+
+	let averageFit:
+		| number
+		| undefined;
+
+	if (fits.size > 0) {
+		let total = 0;
+
+		for (const fit of fits.values()) {
+			total += fit;
+		}
+
+		averageFit =
+			total / fits.size;
+	}
+
+	return choice(
+		formations.normal,
+		(formation) => {
+			const personnel =
+				formation
+					.offensivePersonnel;
+
+			if (personnel === undefined) {
+				return 0.01;
+			}
+
+			const situationWeight =
+				getPersonnelSituationWeight(
+					personnel,
+					playType,
+					down,
+					toGo,
+					scrimmage,
+				);
+
+			const fit =
+				fits.get(
+					personnel,
+				);
+
+			const fitFactor =
+				fit !== undefined &&
+				averageFit !== undefined
+					? helpers.bound(
+							1 +
+								(fit -
+									averageFit) /
+									50,
+							0.7,
+							1.3,
+						)
+					: 1;
+
+			return (
+				situationWeight *
+				fitFactor
+			);
+		},
+	);
+};
+
 /*
  * Football realism layer.
  *
@@ -148,8 +333,14 @@ class GameSimFootballRealism extends GameSimFootball {
 			playType === "pass"
 		) {
 			const offensiveFormation =
-				choice(
-					formations.normal,
+				chooseOffensiveFormation(
+					this.team[
+						this.o
+					],
+					playType,
+					this.down,
+					this.toGo,
+					this.scrimmage,
 				);
 
 			/*
