@@ -1,7 +1,23 @@
 import type { Formation } from "./types.ts";
 
 const normal: Formation[] = [
+	/*
+	 * 11 personnel
+	 *
+	 * 1 RB
+	 * 1 TE
+	 * 3 WR
+	 *
+	 * Defense answers with a Nickel 4-2:
+	 *
+	 * 4 DL
+	 * 2 LB
+	 * 3 CB
+	 * 2 S
+	 */
 	{
+		offensivePersonnel: "11",
+		defensiveFront: "NICKEL_4_2",
 		off: {
 			QB: 1,
 			RB: 1,
@@ -16,7 +32,24 @@ const normal: Formation[] = [
 			S: 2,
 		},
 	},
+
+	/*
+	 * 21 personnel
+	 *
+	 * 2 RB
+	 * 1 TE
+	 * 2 WR
+	 *
+	 * Defense answers with a Base 3-4:
+	 *
+	 * 3 DL
+	 * 4 LB
+	 * 2 CB
+	 * 2 S
+	 */
 	{
+		offensivePersonnel: "21",
+		defensiveFront: "BASE_3_4",
 		off: {
 			QB: 1,
 			RB: 2,
@@ -31,7 +64,24 @@ const normal: Formation[] = [
 			S: 2,
 		},
 	},
+
+	/*
+	 * 22 personnel
+	 *
+	 * 2 RB
+	 * 2 TE
+	 * 1 WR
+	 *
+	 * Defense answers with a Base 4-3:
+	 *
+	 * 4 DL
+	 * 3 LB
+	 * 2 CB
+	 * 2 S
+	 */
 	{
+		offensivePersonnel: "22",
+		defensiveFront: "BASE_4_3",
 		off: {
 			QB: 1,
 			RB: 2,
@@ -46,7 +96,14 @@ const normal: Formation[] = [
 			S: 2,
 		},
 	},
-	// No 5 wide, cause it led to too many QB runs. Not a great solution, but it works! Similar with 4 wide and leaving off a TE/RB
+
+	/*
+	 * No 5-wide formation yet because the existing engine
+	 * produced too many quarterback runs with it.
+	 *
+	 * Similar limitations currently apply to 4-wide sets
+	 * that completely remove the TE/RB.
+	 */
 ];
 
 const fieldGoal: Formation[] = [
