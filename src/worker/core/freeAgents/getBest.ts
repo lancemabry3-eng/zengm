@@ -10,7 +10,19 @@ export const KEY_POSITIONS_NEEDED = bySport<Record<string, number> | undefined>(
 	{
 		baseball: undefined,
 		basketball: undefined,
-		football: { QB: 2, K: 1, P: 1 },
+		football: {
+			QB: 2,
+			RB: 3,
+			WR: 5,
+			TE: 2,
+			OL: 8,
+			DL: 6,
+			LB: 5,
+			CB: 4,
+			S: 4,
+			K: 1,
+			P: 1,
+		},
 		hockey: { G: 2 },
 	},
 );
