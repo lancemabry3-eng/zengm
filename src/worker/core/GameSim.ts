@@ -2419,7 +2419,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					) {
 						for (
 							let depthIndex = 0;
-							dethIndex <
+							depthIndex <
 							depth.length;
 							depthIndex++
 						) {
@@ -4785,6 +4785,11 @@ class GameSimFootballRealism extends GameSimFootball {
 					positions,
 				);
 
+			/*
+			 * If every preferred receiver stayed in protection,
+			 * allow one to release late as an outlet rather than
+			 * feeding choice() an empty array.
+			 */
 			if (
 				candidates.length ===
 					0
@@ -4796,6 +4801,11 @@ class GameSimFootballRealism extends GameSimFootball {
 					);
 			}
 
+			/*
+			 * Catastrophic injuries or unusual old-save rosters can
+			 * leave the concept's preferred position group empty.
+			 * Fall back to any skill-position player on the field.
+			 */
 			if (
 				candidates.length ===
 					0
