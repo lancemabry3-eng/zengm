@@ -2,6 +2,7 @@ import type { Position } from "../../../common/types.football.ts";
 import type { FunctionalRole } from "../player/roleOvr.football.ts";
 import getPlayers from "./getPlayers.ts";
 import type {
+	DefensivePlayConcept,
 	PlayerGameSim,
 	PlayersOnField,
 	RunConcept,
@@ -185,12 +186,6 @@ const getExtraBlockers = (
 	playersOnField: PlayersOnField,
 	type: "pass" | "run",
 ) => {
-	/*
-	 * Tight ends and running backs remain bonus blockers.
-	 * They do not replace one of the five starting OL in
-	 * the main blocking calculation.
-	 */
-
 	const extraBlockers =
 		getPlayers(
 			playersOnField,
@@ -234,14 +229,6 @@ const getOlBlockingFactor = (
 	let numerator = 0;
 	let denominator = 0;
 
-	/*
-	 * Do NOT sort these players.
-	 *
-	 * Their array position represents their real OL role:
-	 *
-	 * LT / LG / C / RG / RT
-	 */
-
 	const numOl =
 		Math.min(
 			ol.length,
@@ -276,12 +263,6 @@ const getOlBlockingFactor = (
 	) {
 		return 0;
 	}
-
-	/*
-	 * TE/RB blocking remains a bonus on top of the main
-	 * offensive line, matching the spirit of the original
-	 * Football GM calculation.
-	 */
 
 	const extraBlockers =
 		getExtraBlockers(
@@ -338,24 +319,6 @@ export const getBlockingFactors = (
 	];
 };
 
-/*
- * RUN-CONCEPT LANE WEIGHTS
- *
- * These weights describe which blockers matter most to the
- * success of a particular rushing concept.
- *
- * OL slot order:
- *
- * 0 = LT
- * 1 = LG
- * 2 = C
- * 3 = RG
- * 4 = RT
- *
- * The average OL weight for every concept is kept close to 1
- * so this changes where execution comes from more than it
- * changes league-wide rushing efficiency.
- */
 const RUN_BLOCK_SLOT_WEIGHTS: Record<
 	RunConcept,
 	readonly [
@@ -436,19 +399,6 @@ export const getRunBlockSlotWeight = (
 	);
 };
 
-/*
- * Extra blockers also matter differently by concept.
- *
- * TE:
- *   Most important on perimeter runs and heavy downhill runs.
- *
- * RB:
- *   Most important as a lead/help blocker on Power and
- *   designed QB runs.
- *
- * WR:
- *   Most important when the run is trying to reach the edge.
- */
 export const getRunExtraBlockWeight = (
 	concept: RunConcept,
 	position: "TE" | "RB" | "WR",
@@ -525,18 +475,6 @@ export const getRunExtraBlockWeight = (
 	return 0.2;
 };
 
-/*
- * PASS-PROTECTION PRESSURE
- *
- * Sacks are only one possible result of a protection loss.
- * This converts the same blocker-versus-rusher results into
- * a 0-to-1 pocket pressure level that can also affect throws
- * that still get away.
- *
- * A single ordinary loss should create noticeable but not
- * catastrophic pressure. Multiple losses, especially at
- * tackle, can push the value much closer to 1.
- */
 export type PassBlockingResult = {
 	type:
 		| "OL"
@@ -589,11 +527,6 @@ export const getPassPressureLevel = (
 			result.type ===
 			"OL"
 		) {
-			/*
-			 * Tackles get a little more weight because edge
-			 * pressure tends to collapse the QB's space and
-			 * timing more quickly.
-			 */
 			weight =
 				slotIndex === 0 ||
 				slotIndex === 4
@@ -604,10 +537,6 @@ export const getPassPressureLevel = (
 				blocker,
 			)
 		) {
-			/*
-			 * RB pickup failures commonly represent a free
-			 * or rapidly arriving extra rusher.
-			 */
 			weight = 0.55;
 		} else if (
 			te.includes(
@@ -662,11 +591,6 @@ export const getPassPressureLevel = (
 			opponentStrength /
 			blockerStrength;
 
-		/*
-		 * Even a randomly lost roughly-even rep creates some
-		 * pressure, while a badly overmatched blocker creates
-		 * more severe pressure.
-		 */
 		const severity =
 			Math.min(
 				1.35,
@@ -688,11 +612,6 @@ export const getPassPressureLevel = (
 		return 0;
 	}
 
-	/*
-	 * Scale the weighted loss share so one ordinary OL loss
-	 * usually lands in the mild-to-moderate pressure range,
-	 * while several failed blocks can approach full pressure.
-	 */
 	return Math.min(
 		1,
 		Math.max(
@@ -703,36 +622,6 @@ export const getPassPressureLevel = (
 		),
 	);
 };
-
-/*
- * INDIVIDUAL TRENCH MATCHUPS
- *
- * Team composite ratings are still useful for keeping the
- * simulator fast and statistically stable, but they should
- * not erase the player directly across from a blocker.
- *
- * These helpers create lightweight one-on-one matchup
- * assignments for the five offensive-line slots.
- *
- * They do not attempt to simulate physical coordinates.
- * Instead, they identify the most relevant defender for
- * each blocking lane:
- *
- * LT / RT:
- *   Prefer EDGE-style threats.
- *
- * LG / C / RG:
- *   Prefer interior defensive linemen and inside/front-seven
- *   defenders.
- *
- * Each defender is used once when enough defenders are
- * available. This prevents one superstar pass rusher from
- * magically attacking all five OL on the same snap.
- *
- * Team-level ratings remain in the larger simulation, so
- * double teams, stunts, coverage pressure, blitz structure,
- * and help protection can still be represented abstractly.
- */
 
 const EDGE_PASS_RUSH_ROLES:
 	FunctionalRole[] = [
@@ -797,11 +686,6 @@ const getBestRoleFit = (
 		}
 	}
 
-	/*
-	 * Older/manual PlayerGameSim objects may not carry
-	 * functional-role ratings. Treat missing role data as
-	 * neutral rather than making those players unusable.
-	 */
 	return (
 		(best ?? 50) /
 		100
@@ -937,23 +821,6 @@ export const getRunStopMatchupStrength = (
 	);
 };
 
-/*
- * RUN-PLAY DISRUPTION
- *
- * Winning or losing a block already affects the aggregate
- * rushing result. This helper goes one step further and asks
- * how damaging the failed blocks were to the actual concept.
- *
- * A failed center/guard block matters more on Inside Zone or
- * Power than it does on Jet Sweep. A failed tackle block is
- * more dangerous on Outside Zone. Extra TE/RB/WR blockers
- * use the same concept-specific importance weights as the
- * rest of the rushing engine.
- *
- * The result is a 0-to-1 disruption level. It is intended to
- * represent penetration and lane destruction, not a second
- * sack-style binary outcome.
- */
 export type RunBlockingResult =
 	PassBlockingResult;
 
@@ -1117,6 +984,177 @@ export const getRunDisruptionLevel = (
 	);
 };
 
+/*
+ * PASS-RUSH PARTICIPATION
+ *
+ * Normal coverage calls send four.
+ * BLITZ sends six.
+ * RUN_BLITZ sends five.
+ */
+export type PassRushPlan = {
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>;
+	extraRushers: PlayerGameSim[];
+	rushers: PlayerGameSim[];
+};
+
+export const getPassRushFreeRusherStrength = (
+	p: PlayerGameSim,
+): number => {
+	return Math.max(
+		getPassRushMatchupStrength(
+			p,
+			0,
+		),
+		getPassRushMatchupStrength(
+			p,
+			2,
+		),
+		getPassRushMatchupStrength(
+			p,
+			4,
+		),
+	);
+};
+
+const getEdgePassRushSelectionStrength = (
+	p: PlayerGameSim,
+): number => {
+	return Math.max(
+		getPassRushMatchupStrength(
+			p,
+			0,
+		),
+		getPassRushMatchupStrength(
+			p,
+			4,
+		),
+	);
+};
+
+const getPassRushers = (
+	defense: PlayersOnField,
+	concept: DefensivePlayConcept,
+): PlayerGameSim[] => {
+	const dl =
+		(defense.DL ?? [])
+			.slice();
+
+	const lb =
+		(defense.LB ?? [])
+			.slice();
+
+	const safeties =
+		(defense.S ?? [])
+			.slice();
+
+	dl.sort(
+		(a, b) =>
+			getPassRushFreeRusherStrength(
+				b,
+			) -
+			getPassRushFreeRusherStrength(
+				a,
+			),
+	);
+
+	lb.sort(
+		(a, b) =>
+			getEdgePassRushSelectionStrength(
+				b,
+			) -
+			getEdgePassRushSelectionStrength(
+				a,
+			),
+	);
+
+	const rushers:
+		PlayerGameSim[] =
+		dl.slice(
+			0,
+			4,
+		);
+
+	for (
+		const p of lb
+	) {
+		if (
+			rushers.length >=
+			4
+		) {
+			break;
+		}
+
+		if (
+			!rushers.includes(
+				p,
+			)
+		) {
+			rushers.push(
+				p,
+			);
+		}
+	}
+
+	const desiredRushers =
+		concept === "BLITZ"
+			? 6
+			: concept ===
+				  "RUN_BLITZ"
+				? 5
+				: 4;
+
+	if (
+		rushers.length >=
+		desiredRushers
+	) {
+		return rushers.slice(
+			0,
+			desiredRushers,
+		);
+	}
+
+	const pressureCandidates = [
+		...lb,
+		...safeties,
+	].filter(
+		(p) =>
+			!rushers.includes(
+				p,
+			),
+	);
+
+	pressureCandidates.sort(
+		(a, b) =>
+			getPassRushFreeRusherStrength(
+				b,
+			) -
+			getPassRushFreeRusherStrength(
+				a,
+			),
+	);
+
+	for (
+		const p of
+			pressureCandidates
+	) {
+		if (
+			rushers.length >=
+			desiredRushers
+		) {
+			break;
+		}
+
+		rushers.push(
+			p,
+		);
+	}
+
+	return rushers;
+};
+
 type MatchupStrengthFunction = (
 	p: PlayerGameSim,
 	blockerSlot: number,
@@ -1159,18 +1197,6 @@ const buildOlMatchups = (
 	const remaining =
 		front.slice();
 
-	/*
-	 * Assign tackles first because edge matchups are the
-	 * most specialized, then guards, then the center.
-	 *
-	 * OL slots:
-	 *
-	 * 0 LT
-	 * 1 LG
-	 * 2 C
-	 * 3 RG
-	 * 4 RT
-	 */
 	const assignmentOrder = [
 		0,
 		4,
@@ -1260,6 +1286,236 @@ const buildOlMatchups = (
 	return matchups;
 };
 
+const buildPassRushMatchups = (
+	offense: PlayersOnField,
+	rushers: PlayerGameSim[],
+): {
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>;
+	extraRushers:
+		PlayerGameSim[];
+} => {
+	const ol =
+		offense.OL ?? [];
+
+	const targetAssignments =
+		Math.min(
+			ol.length,
+			rushers.length,
+		);
+
+	if (
+		targetAssignments ===
+			0
+	) {
+		return {
+			matchups:
+				new Map(),
+			extraRushers:
+				rushers.slice(),
+		};
+	}
+
+	let bestScore =
+		-Infinity;
+
+	let bestPairs:
+		Array<
+			[
+				PlayerGameSim,
+				PlayerGameSim,
+			]
+		> = [];
+
+	const search = (
+		blockerSlot: number,
+		remainingRushers:
+			PlayerGameSim[],
+		pairs:
+			Array<
+				[
+					PlayerGameSim,
+					PlayerGameSim,
+				]
+			>,
+		score: number,
+	) => {
+		const assignmentsLeft =
+			targetAssignments -
+			pairs.length;
+
+		if (
+			assignmentsLeft ===
+			0
+		) {
+			if (
+				score >
+				bestScore
+			) {
+				bestScore =
+					score;
+
+				bestPairs =
+					pairs.slice();
+			}
+
+			return;
+		}
+
+		if (
+			blockerSlot >=
+			ol.length
+		) {
+			return;
+		}
+
+		const blockersLeft =
+			ol.length -
+			blockerSlot;
+
+		if (
+			blockersLeft <
+			assignmentsLeft
+		) {
+			return;
+		}
+
+		if (
+			blockersLeft >
+			assignmentsLeft
+		) {
+			search(
+				blockerSlot +
+					1,
+				remainingRushers,
+				pairs,
+				score,
+			);
+		}
+
+		const blocker =
+			ol[
+				blockerSlot
+			];
+
+		if (!blocker) {
+			return;
+		}
+
+		for (
+			let i = 0;
+			i <
+			remainingRushers.length;
+			i++
+		) {
+			const rusher =
+				remainingRushers[
+					i
+				]!;
+
+			const nextRemaining =
+				remainingRushers.filter(
+					(
+						,
+						index,
+					) =>
+						index !==
+						i,
+				);
+
+			search(
+				blockerSlot +
+					1,
+				nextRemaining,
+				[
+					...pairs,
+					[
+						blocker,
+						rusher,
+					],
+				],
+				score +
+					getPassRushMatchupStrength(
+						rusher,
+						blockerSlot,
+					),
+			);
+		}
+	};
+
+	search(
+		0,
+		rushers,
+		[],
+		0,
+	);
+
+	const matchups =
+		new Map<
+			PlayerGameSim,
+			PlayerGameSim
+		>(
+			bestPairs,
+		);
+
+	const usedRushers =
+		new Set(
+			bestPairs.map(
+				([
+					,
+					rusher,
+				]) =>
+					rusher,
+			),
+		);
+
+	const extraRushers =
+		rushers.filter(
+			(p) =>
+				!usedRushers.has(
+					p,
+				),
+		);
+
+	return {
+		matchups,
+		extraRushers,
+	};
+};
+
+export const getPassRushPlan = (
+	offense: PlayersOnField,
+	defense: PlayersOnField,
+	concept: DefensivePlayConcept,
+): PassRushPlan => {
+	const rushers =
+		getPassRushers(
+			defense,
+			concept,
+		);
+
+	const {
+		matchups,
+		extraRushers,
+	} =
+		buildPassRushMatchups(
+			offense,
+			rushers,
+		);
+
+	return {
+		matchups,
+		extraRushers,
+		rushers,
+	};
+};
+
+/*
+ * Keep the old helper available until the live simulator
+ * switches over to the full concept-aware rush plan.
+ */
 export const getPassProtectionMatchups = (
 	offense: PlayersOnField,
 	defense: PlayersOnField,
