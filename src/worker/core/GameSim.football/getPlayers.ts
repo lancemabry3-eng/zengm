@@ -72,7 +72,40 @@ const applyDefensiveCoachingDecisionWeight = (
 	);
 };
 
-const getRoleCacheKey = (roles: FunctionalRole[]): string => roles.join("|");
+const getDepthAvailabilityKey = (
+	depth: PlayerGameSim[],
+): string =>
+	depth
+		.map(
+			(p) =>
+				`${p.id}:${
+					p.injured
+						? 1
+						: 0
+				}`,
+		)
+		.join(",");
+
+const getTeamAvailabilityKey = (
+	team: TeamGameSim,
+	positions: Position[],
+): string =>
+	positions
+		.map(
+			(pos) =>
+				`${pos}:${getDepthAvailabilityKey(
+					team.depth[pos] ?? [],
+				)}`,
+		)
+		.join("|");
+
+const getRoleCacheKey = (
+	depth: PlayerGameSim[],
+	roles: FunctionalRole[],
+): string =>
+	`${roles.join("|")}::${getDepthAvailabilityKey(
+		depth,
+	)}`;
 
 export const getRoleBasedDepth = (
 	depth: PlayerGameSim[],
@@ -82,7 +115,10 @@ export const getRoleBasedDepth = (
 		return depth;
 	}
 
-	const cacheKey = getRoleCacheKey(roles);
+	const cacheKey = getRoleCacheKey(
+		depth,
+		roles,
+	);
 	let cacheForDepth = roleDepthCache.get(depth);
 	if (!cacheForDepth) {
 		cacheForDepth = new Map();
@@ -125,7 +161,11 @@ export const getRoleBasedDepth = (
 
 			search(
 				roleIndex + 1,
-				totalScore + roleScore,
+				totalScore +
+					roleScore +
+					(p.injured
+						? -1000
+						: 0),
 			);
 
 			currentPlayers.pop();
@@ -172,7 +212,7 @@ const offensivePersonnelFitCache =
 	new WeakMap<
 		TeamGameSim,
 		Map<
-			OffensivePersonnel,
+			string,
 			number | undefined
 		>
 	>();
@@ -181,6 +221,16 @@ export const getOffensivePersonnelFit = (
 	team: TeamGameSim,
 	personnel: OffensivePersonnel,
 ): number | undefined => {
+	const cacheKey =
+		`${personnel}::${getTeamAvailabilityKey(
+			team,
+			[
+				"RB",
+				"WR",
+				"TE",
+			],
+		)}`;
+
 	let cacheForTeam =
 		offensivePersonnelFitCache.get(
 			team,
@@ -198,11 +248,11 @@ export const getOffensivePersonnelFit = (
 
 	if (
 		cacheForTeam.has(
-			personnel,
+			cacheKey,
 		)
 	) {
 		return cacheForTeam.get(
-			personnel,
+			cacheKey,
 		);
 	}
 
@@ -234,7 +284,7 @@ export const getOffensivePersonnelFit = (
 				roles.length
 		) {
 			cacheForTeam.set(
-				personnel,
+				cacheKey,
 				undefined,
 			);
 
@@ -266,7 +316,7 @@ export const getOffensivePersonnelFit = (
 				undefined
 			) {
 				cacheForTeam.set(
-					personnel,
+					cacheKey,
 					undefined,
 				);
 
@@ -288,7 +338,7 @@ export const getOffensivePersonnelFit = (
 			: undefined;
 
 	cacheForTeam.set(
-		personnel,
+		cacheKey,
 		fit,
 	);
 
@@ -340,7 +390,7 @@ const averageDefined = (
 
 	if (
 		defined.length ===
-		0
+			0
 	) {
 		return undefined;
 	}
@@ -352,10 +402,10 @@ const averageDefined = (
 				value,
 			) =>
 				sum +
-				value,
+					value,
 			0,
 		) /
-		defined.length
+			defined.length
 	);
 };
 
@@ -365,7 +415,7 @@ const getPassTargetRoleScore = (
 ): number | undefined => {
 	if (
 		concept ===
-		"QUICK_GAME"
+			"QUICK_GAME"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -385,7 +435,7 @@ const getPassTargetRoleScore = (
 
 	if (
 		concept ===
-		"INTERMEDIATE"
+			"INTERMEDIATE"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -405,7 +455,7 @@ const getPassTargetRoleScore = (
 
 	if (
 		concept ===
-		"DEEP_SHOT"
+			"DEEP_SHOT"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -421,7 +471,7 @@ const getPassTargetRoleScore = (
 
 	if (
 		concept ===
-		"PLAY_ACTION"
+			"PLAY_ACTION"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -512,7 +562,7 @@ export const getPassTargetWeight = (
 
 	if (
 		concept ===
-		"QUICK_GAME"
+			"QUICK_GAME"
 	) {
 		skillWeight =
 			catching *
@@ -521,7 +571,7 @@ export const getPassTargetWeight = (
 				0.5;
 	} else if (
 		concept ===
-		"DEEP_SHOT"
+			"DEEP_SHOT"
 	) {
 		skillWeight =
 			gettingOpen *
@@ -532,7 +582,7 @@ export const getPassTargetWeight = (
 				0.2;
 	} else if (
 		concept ===
-		"PLAY_ACTION"
+			"PLAY_ACTION"
 	) {
 		skillWeight =
 			gettingOpen *
@@ -543,7 +593,7 @@ export const getPassTargetWeight = (
 				0.15;
 	} else if (
 		concept ===
-		"SCREEN"
+			"SCREEN"
 	) {
 		skillWeight =
 			catching *
@@ -577,7 +627,7 @@ const getCoverageRoleScore = (
 ): number | undefined => {
 	if (
 		concept ===
-		"DEEP_SHOT"
+			"DEEP_SHOT"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -591,7 +641,7 @@ const getCoverageRoleScore = (
 
 	if (
 		concept ===
-		"QUICK_GAME"
+			"QUICK_GAME"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -609,7 +659,7 @@ const getCoverageRoleScore = (
 
 	if (
 		concept ===
-		"SCREEN"
+			"SCREEN"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -627,7 +677,7 @@ const getCoverageRoleScore = (
 
 	if (
 		concept ===
-		"PLAY_ACTION"
+			"PLAY_ACTION"
 	) {
 		return maxDefined([
 			p.roleOvrs
@@ -703,7 +753,7 @@ export const getCoverageDefenderWeight = (
 
 	const skillWeight =
 		concept ===
-		"SCREEN"
+			"SCREEN"
 			? coverage *
 					0.55 +
 				tackling *
@@ -730,15 +780,6 @@ const DEFENSIVE_PLAY_CONCEPTS:
 		"EDGE_CONTAIN",
 	];
 
-const defensiveConceptFitCache =
-	new WeakMap<
-		TeamGameSim,
-		Map<
-			DefensivePlayConcept,
-			number | undefined
-		>
-	>();
-
 const getBestDefensiveRoleScore = (
 	team: TeamGameSim,
 	pos:
@@ -748,38 +789,54 @@ const getBestDefensiveRoleScore = (
 		| "S",
 	roles: FunctionalRole[],
 ): number | undefined => {
-	let best:
-		| number
-		| undefined;
+	const findBest = (
+		allowInjured: boolean,
+	) => {
+		let best:
+			| number
+			| undefined;
 
-	for (
-		const p of
-			team.depth[pos]
-	) {
 		for (
-			const role of
-				roles
+			const p of
+				team.depth[pos]
 		) {
-			const score =
-				p.roleOvrs?.[
-					role
-				];
-
 			if (
-				score !==
-					undefined &&
-				(best ===
-					undefined ||
-					score >
-						best)
+				!allowInjured &&
+				p.injured
 			) {
-				best =
-					score;
+				continue;
+			}
+
+			for (
+				const role of
+					roles
+			) {
+				const score =
+					p.roleOvrs?.[
+						role
+					];
+
+				if (
+					score !==
+						undefined &&
+					(best ===
+						undefined ||
+						score >
+							best)
+				) {
+					best =
+						score;
+				}
 			}
 		}
-	}
 
-	return best;
+		return best;
+	};
+
+	return (
+		findBest(false) ??
+		findBest(true)
+	);
 };
 
 const getTeamCompositePercent = (
@@ -793,7 +850,7 @@ const getTeamCompositePercent = (
 
 	if (
 		typeof value !==
-		"number"
+			"number"
 	) {
 		return undefined;
 	}
@@ -809,38 +866,13 @@ const getDefensivePlayConceptFitScore = (
 	team: TeamGameSim,
 	concept: DefensivePlayConcept,
 ): number | undefined => {
-	let cacheForTeam =
-		defensiveConceptFitCache.get(
-			team,
-		);
-
-	if (!cacheForTeam) {
-		cacheForTeam =
-			new Map();
-
-		defensiveConceptFitCache.set(
-			team,
-			cacheForTeam,
-		);
-	}
-
-	if (
-		cacheForTeam.has(
-			concept,
-		)
-	) {
-		return cacheForTeam.get(
-			concept,
-		);
-	}
-
 	let score:
 		| number
 		| undefined;
 
 	if (
 		concept ===
-		"BASE"
+			"BASE"
 	) {
 		score =
 			averageDefined([
@@ -859,7 +891,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"MAN_PRESS"
+			"MAN_PRESS"
 	) {
 		score =
 			averageDefined([
@@ -885,7 +917,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"COVER_1"
+			"COVER_1"
 	) {
 		score =
 			averageDefined([
@@ -910,7 +942,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"COVER_2"
+			"COVER_2"
 	) {
 		score =
 			averageDefined([
@@ -936,7 +968,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"COVER_3"
+			"COVER_3"
 	) {
 		score =
 			averageDefined([
@@ -968,7 +1000,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"COVER_4"
+			"COVER_4"
 	) {
 		score =
 			averageDefined([
@@ -994,7 +1026,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"BLITZ"
+			"BLITZ"
 	) {
 		score =
 			averageDefined([
@@ -1021,7 +1053,7 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	} else if (
 		concept ===
-		"RUN_BLITZ"
+			"RUN_BLITZ"
 	) {
 		score =
 			averageDefined([
@@ -1081,11 +1113,6 @@ const getDefensivePlayConceptFitScore = (
 			]);
 	}
 
-	cacheForTeam.set(
-		concept,
-		score,
-	);
-
 	return score;
 };
 
@@ -1098,130 +1125,130 @@ const getDefensivePlayConceptSituationWeight = (
 ): number => {
 	let weight =
 		concept ===
-		"BASE"
+			"BASE"
 			? 4
 			: concept ===
-				  "MAN_PRESS"
+					"MAN_PRESS"
 				? 1.6
 				: concept ===
-					  "COVER_1"
+						"COVER_1"
 					? 2.4
 					: concept ===
-						  "COVER_2"
+							"COVER_2"
 						? 2.2
 						: concept ===
-							  "COVER_3"
+								"COVER_3"
 							? 3
 							: concept ===
-								  "COVER_4"
+									"COVER_4"
 								? 1.5
 								: concept ===
-									  "BLITZ"
+										"BLITZ"
 									? 1.3
 									: concept ===
-										  "RUN_BLITZ"
+											"RUN_BLITZ"
 										? 1
 										: 0.9;
 
 	if (
 		offensivePersonnel ===
-		"11"
+			"11"
 	) {
 		if (
 			concept ===
-			"MAN_PRESS"
+				"MAN_PRESS"
 		) {
 			weight *= 1.2;
 		} else if (
 			concept ===
-			"COVER_2"
+				"COVER_2"
 		) {
 			weight *= 1.15;
 		} else if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 1.15;
 		} else if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 0.65;
 		} else if (
 			concept ===
-			"EDGE_CONTAIN"
+				"EDGE_CONTAIN"
 		) {
 			weight *= 1.05;
 		}
 	} else if (
 		offensivePersonnel ===
-		"12"
+			"12"
 	) {
 		if (
 			concept ===
-			"BASE"
+				"BASE"
 		) {
 			weight *= 1.1;
 		} else if (
 			concept ===
-			"COVER_3"
+				"COVER_3"
 		) {
 			weight *= 1.15;
 		} else if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 1.1;
 		} else if (
 			concept ===
-			"EDGE_CONTAIN"
+				"EDGE_CONTAIN"
 		) {
 			weight *= 1.1;
 		}
 	} else if (
 		offensivePersonnel ===
-		"21"
+			"21"
 	) {
 		if (
 			concept ===
-			"BASE"
+				"BASE"
 		) {
 			weight *= 1.15;
 		} else if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 1.3;
 		} else if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 0.7;
 		} else if (
 			concept ===
-			"MAN_PRESS"
+				"MAN_PRESS"
 		) {
 			weight *= 0.85;
 		}
 	} else {
 		if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 1.55;
 		} else if (
 			concept ===
-			"BASE"
+				"BASE"
 		) {
 			weight *= 1.2;
 		} else if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 0.55;
 		} else if (
 			concept ===
-			"BLITZ"
+				"BLITZ"
 		) {
 			weight *= 0.8;
 		}
@@ -1230,27 +1257,27 @@ const getDefensivePlayConceptSituationWeight = (
 	if (toGo <= 2) {
 		if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 2.2;
 		} else if (
 			concept ===
-			"EDGE_CONTAIN"
+				"EDGE_CONTAIN"
 		) {
 			weight *= 1.25;
 		} else if (
 			concept ===
-			"BASE"
+				"BASE"
 		) {
 			weight *= 1.15;
 		} else if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 0.45;
 		} else if (
 			concept ===
-			"BLITZ"
+				"BLITZ"
 		) {
 			weight *= 0.8;
 		}
@@ -1259,32 +1286,32 @@ const getDefensivePlayConceptSituationWeight = (
 	if (toGo >= 8) {
 		if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 1.8;
 		} else if (
 			concept ===
-			"COVER_3"
+				"COVER_3"
 		) {
 			weight *= 1.35;
 		} else if (
 			concept ===
-			"COVER_2"
+				"COVER_2"
 		) {
 			weight *= 1.25;
 		} else if (
 			concept ===
-			"BLITZ"
+				"BLITZ"
 		) {
 			weight *= 1.35;
 		} else if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 0.3;
 		} else if (
 			concept ===
-			"MAN_PRESS"
+				"MAN_PRESS"
 		) {
 			weight *= 0.85;
 		}
@@ -1296,27 +1323,27 @@ const getDefensivePlayConceptSituationWeight = (
 	) {
 		if (
 			concept ===
-			"BLITZ"
+				"BLITZ"
 		) {
 			weight *= 1.65;
 		} else if (
 			concept ===
-			"COVER_1"
+				"COVER_1"
 		) {
 			weight *= 1.3;
 		} else if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 1.4;
 		} else if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 0.25;
 		} else if (
 			concept ===
-			"EDGE_CONTAIN"
+				"EDGE_CONTAIN"
 		) {
 			weight *= 1.1;
 		}
@@ -1324,31 +1351,31 @@ const getDefensivePlayConceptSituationWeight = (
 
 	if (
 		scrimmage >=
-		95
+			95
 	) {
 		if (
 			concept ===
-			"RUN_BLITZ"
+				"RUN_BLITZ"
 		) {
 			weight *= 1.7;
 		} else if (
 			concept ===
-			"MAN_PRESS"
+				"MAN_PRESS"
 		) {
 			weight *= 1.55;
 		} else if (
 			concept ===
-			"COVER_1"
+				"COVER_1"
 		) {
 			weight *= 1.3;
 		} else if (
 			concept ===
-			"EDGE_CONTAIN"
+				"EDGE_CONTAIN"
 		) {
 			weight *= 1.2;
 		} else if (
 			concept ===
-			"COVER_4"
+				"COVER_4"
 		) {
 			weight *= 0.4;
 		}
@@ -1416,7 +1443,12 @@ type BaseDefensiveFront =
 const baseDefensiveFrontCache =
 	new WeakMap<
 		TeamGameSim,
-		BaseDefensiveFront
+		{
+			availabilityKey:
+				string;
+			front:
+				BaseDefensiveFront;
+		}
 	>();
 
 const getDefensiveFrontFitScore = (
@@ -1468,7 +1500,7 @@ const getDefensiveFrontFitScore = (
 
 			if (
 				score ===
-				undefined
+					undefined
 			) {
 				return -Infinity;
 			}
@@ -1484,13 +1516,25 @@ const getDefensiveFrontFitScore = (
 export const getBaseDefensiveFront = (
 	team: TeamGameSim,
 ): BaseDefensiveFront => {
+	const availabilityKey =
+		getTeamAvailabilityKey(
+			team,
+			[
+				"DL",
+				"LB",
+			],
+		);
+
 	const cached =
 		baseDefensiveFrontCache.get(
 			team,
 		);
 
-	if (cached) {
-		return cached;
+	if (
+		cached?.availabilityKey ===
+			availabilityKey
+	) {
+		return cached.front;
 	}
 
 	const score34 =
@@ -1508,13 +1552,16 @@ export const getBaseDefensiveFront = (
 	const front:
 		BaseDefensiveFront =
 			score34 >
-			score43
+				score43
 				? "BASE_3_4"
 				: "BASE_4_3";
 
 	baseDefensiveFrontCache.set(
 		team,
-		front,
+		{
+			availabilityKey,
+			front,
+		},
 	);
 
 	return front;
