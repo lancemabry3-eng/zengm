@@ -11,6 +11,7 @@ import playThroughInjuriesFactor from "../../../common/playThroughInjuriesFactor
 import { bySport } from "../../../common/sportFunctions.ts";
 import { last } from "../../../common/utils.ts";
 import { getRoleOvrs } from "../player/roleOvr.football.ts";
+import getLevelLastThree from "../finances/getLevelLastThree.ts";
 
 const MAX_NUM_PLAYERS_PACE = 7;
 
@@ -156,9 +157,6 @@ export const processTeam = async (
 		tid: number;
 		playThroughInjuries: [number, number];
 		depth?: any;
-		budget?: {
-			coaching: number;
-		};
 	},
 	teamSeason: {
 		won: number;
@@ -275,6 +273,25 @@ export const processTeam = async (
 			},
 		);
 
+	/*
+	 * Use the same three-season, games-weighted coaching
+	 * level that powers the existing player-development
+	 * coaching effect.
+	 *
+	 * Synthetic All-Star teams do not have real budget
+	 * history, so they intentionally keep coaching undefined.
+	 */
+	const coachingLevel =
+		__SPORT === "football" &&
+		!allStarGame
+			? await getLevelLastThree(
+					"coaching",
+					{
+						tid: teamInput.tid,
+					},
+				)
+			: undefined;
+
 	const t: any = {
 		id: teamInput.tid,
 		pace: 0,
@@ -300,11 +317,7 @@ export const processTeam = async (
 		},
 		compositeRating,
 		depth: teamInput.depth,
-		coachingLevel:
-			__SPORT === "football"
-				? teamInput.budget
-						?.coaching
-				: undefined,
+		coachingLevel,
 	};
 
 	const playThroughInjuries =
@@ -537,7 +550,7 @@ export const processTeam = async (
 
 			for (
 				const key of
-				SEASON_STATS_KEYS
+					SEASON_STATS_KEYS
 			) {
 				seasonStats[key] =
 					pSeasonStats?.[
