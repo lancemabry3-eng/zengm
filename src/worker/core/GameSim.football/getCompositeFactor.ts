@@ -526,6 +526,185 @@ export const getRunExtraBlockWeight = (
 };
 
 /*
+ * PASS-PROTECTION PRESSURE
+ *
+ * Sacks are only one possible result of a protection loss.
+ * This converts the same blocker-versus-rusher results into
+ * a 0-to-1 pocket pressure level that can also affect throws
+ * that still get away.
+ *
+ * A single ordinary loss should create noticeable but not
+ * catastrophic pressure. Multiple losses, especially at
+ * tackle, can push the value much closer to 1.
+ */
+export type PassBlockingResult = {
+	type:
+		| "OL"
+		| "Other";
+	won: boolean;
+};
+
+export const getPassPressureLevel = (
+	offense: PlayersOnField,
+	results: Map<
+		PlayerGameSim,
+		PassBlockingResult
+	>,
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>,
+	teamPassRushing: number,
+): number => {
+	const ol =
+		offense.OL ?? [];
+
+	const te =
+		offense.TE ?? [];
+
+	const rb =
+		offense.RB ?? [];
+
+	let weightedPressure = 0;
+	let totalWeight = 0;
+
+	for (
+		const [
+			blocker,
+			result,
+		] of results
+	) {
+		const slotIndex =
+			result.type ===
+				"OL"
+				? ol.indexOf(
+						blocker,
+					)
+				: -1;
+
+		let weight:
+			number;
+
+		if (
+			result.type ===
+			"OL"
+		) {
+			/*
+			 * Tackles get a little more weight because edge
+			 * pressure tends to collapse the QB's space and
+			 * timing more quickly.
+			 */
+			weight =
+				slotIndex === 0 ||
+				slotIndex === 4
+					? 1.15
+					: 1;
+		} else if (
+			rb.includes(
+				blocker,
+			)
+		) {
+			/*
+			 * RB pickup failures commonly represent a free
+			 * or rapidly arriving extra rusher.
+			 */
+			weight = 0.55;
+		} else if (
+			te.includes(
+				blocker,
+			)
+		) {
+			weight = 0.45;
+		} else {
+			weight = 0.35;
+		}
+
+		totalWeight +=
+			weight;
+
+		if (result.won) {
+			continue;
+		}
+
+		let opponentStrength =
+			Math.max(
+				0.05,
+				teamPassRushing,
+			);
+
+		if (slotIndex >= 0) {
+			const defender =
+				matchups.get(
+					blocker,
+				);
+
+			if (defender) {
+				opponentStrength =
+					0.35 *
+						opponentStrength +
+					0.65 *
+						getPassRushMatchupStrength(
+							defender,
+							slotIndex,
+						);
+			}
+		}
+
+		const blockerStrength =
+			Math.max(
+				0.05,
+				blocker
+					.compositeRating
+					.passBlocking,
+			);
+
+		const matchupRatio =
+			opponentStrength /
+			blockerStrength;
+
+		/*
+		 * Even a randomly lost roughly-even rep creates some
+		 * pressure, while a badly overmatched blocker creates
+		 * more severe pressure.
+		 */
+		const severity =
+			Math.min(
+				1.35,
+				Math.max(
+					0.4,
+					0.65 +
+						(matchupRatio -
+							1) *
+							0.75,
+				),
+			);
+
+		weightedPressure +=
+			weight *
+			severity;
+	}
+
+	if (totalWeight <= 0) {
+		return 0;
+	}
+
+	/*
+	 * Scale the weighted loss share so one ordinary OL loss
+	 * usually lands in the mild-to-moderate pressure range,
+	 * while several failed blocks can approach full pressure.
+	 */
+	return Math.min(
+		1,
+		Math.max(
+			0,
+			(weightedPressure /
+				totalWeight) *
+				1.9,
+		),
+	);
+};
+
+/*
  * INDIVIDUAL TRENCH MATCHUPS
  *
  * Team composite ratings are still useful for keeping the
