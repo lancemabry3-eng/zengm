@@ -14,6 +14,14 @@ type OffensiveRoleOrder = Partial<
 	Record<Position, FunctionalRole[]>
 >;
 
+const OL_ROLE_ORDER: FunctionalRole[] = [
+	"LT",
+	"LG",
+	"C",
+	"RG",
+	"RT",
+];
+
 /*
  * Functional-role requirements for each offensive personnel
  * package.
@@ -123,6 +131,17 @@ export const getOffensiveRoleOrder = (
 	formation: Formation,
 	pos: Position,
 ): FunctionalRole[] | undefined => {
+	/*
+	 * OL role order is universal across every normal offensive
+	 * personnel package. Keeping it here lets the game-sim
+	 * role-depth optimizer reassign LT/LG/C/RG/RT when injuries
+	 * change availability without making OL part of personnel-fit
+	 * scoring.
+	 */
+	if (pos === "OL") {
+		return OL_ROLE_ORDER;
+	}
+
 	const personnel =
 		formation.offensivePersonnel;
 
