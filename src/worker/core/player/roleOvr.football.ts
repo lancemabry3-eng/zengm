@@ -105,8 +105,41 @@ export const FUNCTIONAL_ROLES_BY_POSITION: Record<
 	P: [],
 };
 
-type CompositeKey = keyof typeof COMPOSITE_WEIGHTS;
-type RoleComponent = CompositeKey | RatingKey;
+const COMPOSITE_KEYS = [
+	"passingAccuracy",
+	"passingDeep",
+	"passingVision",
+	"athleticism",
+	"rushing",
+	"catching",
+	"gettingOpen",
+	"speed",
+	"passBlocking",
+	"runBlocking",
+	"passRushing",
+	"runStopping",
+	"passCoverage",
+	"tackling",
+	"avoidingSacks",
+	"ballSecurity",
+	"endurance",
+	"kickingPower",
+	"kickingAccuracy",
+	"puntingPower",
+	"puntingAccuracy",
+] as const;
+
+type CompositeKey =
+	(typeof COMPOSITE_KEYS)[number];
+
+type RoleComponent =
+	| CompositeKey
+	| RatingKey;
+
+const COMPOSITE_KEY_SET =
+	new Set<string>(
+		COMPOSITE_KEYS,
+	);
 
 type RoleSpec = {
 	position: PrimaryPosition;
@@ -491,8 +524,15 @@ const getComponentValue = (
 	ratings: PlayerRatings,
 	component: RoleComponent,
 ): number => {
-	if (Object.hasOwn(COMPOSITE_WEIGHTS, component)) {
-		const info = COMPOSITE_WEIGHTS[component as CompositeKey];
+	if (
+		COMPOSITE_KEY_SET.has(
+			component,
+		)
+	) {
+		const info =
+			COMPOSITE_WEIGHTS[
+				component as CompositeKey
+			];
 
 		return compositeRating(
 			ratings,
@@ -502,8 +542,22 @@ const getComponentValue = (
 		);
 	}
 
+	const rawRating =
+		ratings[
+			component as RatingKey
+		];
+
+	if (
+		typeof rawRating !==
+			"number"
+	) {
+		throw new Error(
+			`Unknown football role component "${component}"`,
+		);
+	}
+
 	return helpers.bound(
-		ratings[component as RatingKey] / 100,
+		rawRating / 100,
 		0,
 		1,
 	);
