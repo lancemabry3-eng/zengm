@@ -1,3 +1,4 @@
+import { DEFAULT_LEVEL } from "../../common/budgetLevels.ts";
 import { FATIGUE_POS } from "../../common/constants.football.ts";
 import { choice, randInt, truncGauss } from "../../common/random.ts";
 import { bySport } from "../../common/sportFunctions.ts";
@@ -41,6 +42,53 @@ import type {
 	TeamGameSim,
 } from "./GameSim.football/types.ts";
 import GameSimHockey from "./GameSim.hockey/index.ts";
+
+const getCoachingDecisionExponent = (
+	team: TeamGameSim,
+): number => {
+	const level =
+		team.coachingLevel;
+
+	if (
+		level === undefined ||
+		Number.isNaN(level)
+	) {
+		return 1;
+	}
+
+	const centered =
+		level >= DEFAULT_LEVEL
+			? (level - DEFAULT_LEVEL) /
+				(100 - DEFAULT_LEVEL)
+			: (level - DEFAULT_LEVEL) /
+				(DEFAULT_LEVEL - 1);
+
+	return helpers.bound(
+		1 +
+			0.28 *
+				centered,
+		0.72,
+		1.28,
+	);
+};
+
+const applyCoachingDecisionWeight = (
+	team: TeamGameSim,
+	weight: number,
+): number => {
+	const safeWeight =
+		Math.max(
+			0.0001,
+			weight,
+		);
+
+	return (
+		safeWeight **
+		getCoachingDecisionExponent(
+			team,
+		)
+	);
+};
 
 const footballFatigue = (energy: number, injured: boolean): number => {
 	if (injured) {
@@ -225,7 +273,11 @@ const chooseOffensiveFormation = (
 				? helpers.bound(1 + (fit - averageFit) / 50, 0.7, 1.3)
 				: 1;
 
-		return situationWeight * fitFactor;
+		return applyCoachingDecisionWeight(
+			offense,
+			situationWeight *
+				fitFactor,
+		);
 	});
 };
 
@@ -980,12 +1032,15 @@ const chooseRunDirection = (
 	return choice(
 		RUN_DIRECTIONS,
 		(direction) =>
-			RUN_DIRECTION_CONCEPT_WEIGHTS[
-				concept
-			][direction] *
-			getRunDirectionRosterFactor(
+			applyCoachingDecisionWeight(
 				team,
-				direction,
+				RUN_DIRECTION_CONCEPT_WEIGHTS[
+					concept
+				][direction] *
+					getRunDirectionRosterFactor(
+						team,
+						direction,
+					),
 			),
 	);
 };
@@ -1003,17 +1058,27 @@ const chooseOffensivePlayConcept = (
 		const concept = choice(
 			RUN_CONCEPTS,
 			(candidate) =>
-				getRunConceptSituationWeight(
-					candidate,
-					personnel,
-					down,
-					toGo,
-					scrimmage,
-				) *
-				getConceptRosterFactor(
-					getRunConceptRosterScore(team, candidate),
-				) *
-				getDesignedRunUsageFactor(team, candidate, qb),
+				applyCoachingDecisionWeight(
+					team,
+					getRunConceptSituationWeight(
+						candidate,
+						personnel,
+						down,
+						toGo,
+						scrimmage,
+					) *
+						getConceptRosterFactor(
+							getRunConceptRosterScore(
+								team,
+								candidate,
+							),
+						) *
+						getDesignedRunUsageFactor(
+							team,
+							candidate,
+							qb,
+						),
+				),
 		);
 
 		const direction =
@@ -1032,15 +1097,21 @@ const chooseOffensivePlayConcept = (
 	const concept = choice(
 		PASS_CONCEPTS,
 		(candidate) =>
-			getPassConceptSituationWeight(
-				candidate,
-				personnel,
-				down,
-				toGo,
-				scrimmage,
-			) *
-			getConceptRosterFactor(
-				getPassConceptRosterScore(team, candidate),
+			applyCoachingDecisionWeight(
+				team,
+				getPassConceptSituationWeight(
+					candidate,
+					personnel,
+					down,
+					toGo,
+					scrimmage,
+				) *
+					getConceptRosterFactor(
+						getPassConceptRosterScore(
+							team,
+							candidate,
+						),
+					),
 			),
 	);
 
