@@ -202,6 +202,16 @@ export type TeamGameSim = {
 	player: PlayerGameSim[];
 	compositeRating: any;
 	depth: Record<Position, PlayerGameSim[]>;
+
+	/*
+	 * Existing team coaching budget/level exposed to football
+	 * game simulation.
+	 *
+	 * Optional keeps old saves, exhibition teams, and synthetic
+	 * All-Star teams backward-compatible while the coaching
+	 * realism layer is integrated.
+	 */
+	coachingLevel?: number;
 };
 
 /*
