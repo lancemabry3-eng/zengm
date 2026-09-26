@@ -13,12 +13,39 @@ const TEMP = 0.35;
 const LEARNING_RATE = 0.5;
 const DEFAULT_ROUNDS = 60;
 
+const getFootballContractLengthAdjustment = (
+	pos: string,
+	ovr: number,
+): number => {
+	if (pos === "RB") {
+		return -1;
+	}
+
+	if (pos === "QB") {
+		return ovr >= 55 ? 1 : 0;
+	}
+
+	if (
+		ovr >= 65 &&
+		(
+			pos === "WR" ||
+			pos === "OL" ||
+			pos === "DL" ||
+			pos === "CB"
+		)
+	) {
+		return 1;
+	}
+
+	return 0;
+};
+
 const getExpiration = (
 	p: Player,
 	randomizeExp: boolean,
 	nextSeason?: boolean,
 ) => {
-	const { ovr, pot } = last(p.ratings);
+	const { ovr, pot, pos } = last(p.ratings);
 
 	// pot is predictable via age+ovr with R^2=0.94, so skip it b/c wasn't in data
 	const age = g.get("season") - p.born.year;
@@ -29,6 +56,17 @@ const getExpiration = (
 		0.002178 * (ovr * ovr) +
 		0 * pot;
 	years = Math.round(years);
+
+	if (__SPORT === "football") {
+		years = Math.max(
+			1,
+			years +
+				getFootballContractLengthAdjustment(
+					pos,
+					ovr,
+				),
+		);
+	}
 
 	// Randomize expiration for contracts generated at beginning of new game
 	if (randomizeExp) {

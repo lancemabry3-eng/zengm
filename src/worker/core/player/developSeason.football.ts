@@ -7,6 +7,8 @@ import type {
 import { coachingEffect } from "../../../common/budgetLevels.ts";
 import { uniform, truncGauss } from "../../../common/random.ts";
 
+type DevelopableRatingKey = Exclude<RatingKey, "hgt">;
+
 type RatingFormula = {
 	ageModifier: (age: number) => number;
 	changeLimits: (age: number) => [number, number];
@@ -31,6 +33,30 @@ const powerFormula: RatingFormula = {
 	},
 	changeLimits: () => [-3, 6],
 };
+
+const movementFormula: RatingFormula = {
+	ageModifier: (age: number) => {
+		if (age <= 23) {
+			return 0.5;
+		}
+
+		if (age <= 26) {
+			return 0;
+		}
+
+		if (age <= 28) {
+			return -0.5;
+		}
+
+		if (age <= 30) {
+			return -1.5;
+		}
+
+		return -3;
+	},
+	changeLimits: () => [-10, 5],
+};
+
 const iqFormula: RatingFormula = {
 	ageModifier: (age: number) => {
 		if (age <= 21) {
@@ -66,6 +92,7 @@ const iqFormula: RatingFormula = {
 		return [-3, 7 + 5 * (24 - age)];
 	},
 };
+
 const ratingsFormulas: Record<Exclude<RatingKey, "hgt">, RatingFormula> = {
 	stre: {
 		ageModifier: () => 0,
@@ -101,12 +128,9 @@ const ratingsFormulas: Record<Exclude<RatingKey, "hgt">, RatingFormula> = {
 	},
 	thv: iqFormula,
 	thp: powerFormula,
-	tha: powerFormula,
-	bsc: {
-		ageModifier: () => 0,
-		changeLimits: () => [-Infinity, Infinity],
-	},
-	elu: iqFormula,
+	tha: iqFormula,
+	bsc: iqFormula,
+	elu: movementFormula,
 	rtr: iqFormula,
 	hnd: iqFormula,
 	rbk: iqFormula,
@@ -119,6 +143,71 @@ const ratingsFormulas: Record<Exclude<RatingKey, "hgt">, RatingFormula> = {
 	kac: iqFormula,
 	ppw: powerFormula,
 	pac: iqFormula,
+};
+
+const CORE_DEVELOPMENT_RATINGS: Partial<
+	Record<string, Set<DevelopableRatingKey>>
+> = {
+	QB: new Set(["thv", "thp", "tha"]),
+	RB: new Set(["bsc", "elu", "spd"]),
+	WR: new Set(["rtr", "hnd", "spd"]),
+	TE: new Set(["hnd", "rtr", "rbk", "pbk"]),
+	OL: new Set(["rbk", "pbk", "stre", "endu"]),
+	DL: new Set(["prs", "rns", "tck", "stre"]),
+	LB: new Set(["tck", "rns", "pcv", "prs"]),
+	CB: new Set(["pcv", "spd"]),
+	S: new Set(["pcv", "tck", "rns"]),
+	K: new Set(["kpw", "kac"]),
+	P: new Set(["ppw", "pac"]),
+};
+
+const SUPPORT_DEVELOPMENT_RATINGS: Partial<
+	Record<string, Set<DevelopableRatingKey>>
+> = {
+	QB: new Set(["bsc", "elu", "spd", "endu"]),
+	RB: new Set(["hnd", "rtr", "stre", "endu"]),
+	WR: new Set(["bsc", "elu", "endu"]),
+	TE: new Set(["stre", "endu", "spd"]),
+	OL: new Set(["spd"]),
+	DL: new Set(["spd", "endu"]),
+	LB: new Set(["spd", "stre", "endu"]),
+	CB: new Set(["tck", "endu"]),
+	S: new Set(["spd", "stre", "endu"]),
+	K: new Set(["endu"]),
+	P: new Set(["endu"]),
+};
+
+const getPositionDevelopmentMultiplier = (
+	pos: string,
+	key: DevelopableRatingKey,
+	change: number,
+): number => {
+	/*
+	 * Position specialization applies to growth, not decline.
+	 * Aging and physical regression should still affect the
+	 * whole player rather than being hidden by positional fit.
+	 */
+	if (change <= 0) {
+		return 1;
+	}
+
+	if (
+		CORE_DEVELOPMENT_RATINGS[
+			pos
+		]?.has(key)
+	) {
+		return 1.15;
+	}
+
+	if (
+		SUPPORT_DEVELOPMENT_RATINGS[
+			pos
+		]?.has(key)
+	) {
+		return 0.8;
+	}
+
+	return 0.35;
 };
 
 const calcBaseChange = (age: number, coachingLevel: number): number => {
@@ -187,13 +276,25 @@ const developSeason = (
 			}
 		}
 
+		const rawChange =
+			helpers.bound(
+				(baseChange + ageModifier) *
+					uniform(0.4, 1.4),
+				changeLimits[0],
+				changeLimits[1],
+			);
+
+		const developmentMultiplier =
+			getPositionDevelopmentMultiplier(
+				ratings.pos,
+				key,
+				rawChange,
+			);
+
 		ratings[key] = limitRating(
 			ratings[key] +
-				helpers.bound(
-					(baseChange + ageModifier) * uniform(0.4, 1.4),
-					changeLimits[0],
-					changeLimits[1],
-				),
+				rawChange *
+					developmentMultiplier,
 		);
 	}
 };

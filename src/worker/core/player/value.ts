@@ -5,6 +5,55 @@ import valueCombineOvrPot from "./valueCombineOvrPot.ts";
 import { bySport } from "../../../common/sportFunctions.ts";
 import { last } from "../../../common/utils.ts";
 
+const FOOTBALL_POSITION_VALUE_MULTIPLIERS: Record<string, number> = {
+	RB: 0.9,
+	WR: 1.05,
+	TE: 0.96,
+	OL: 1.06,
+	DL: 1.05,
+	LB: 0.97,
+	CB: 1.05,
+	S: 0.98,
+};
+
+const getFootballPositionValueMultiplier = (
+	pos: string,
+	value: number,
+): number => {
+	const target =
+		FOOTBALL_POSITION_VALUE_MULTIPLIERS[pos] ?? 1;
+
+	/*
+	 * Positional scarcity matters much more for legitimate
+	 * starters and stars than it does for replacement-level
+	 * players. Scale the market effect in gradually so roster
+	 * churn at the bottom remains stable.
+	 */
+	const marketWeight = Math.max(
+		0,
+		Math.min(
+			1,
+			(value - 45) / 35,
+		),
+	);
+
+	return (
+		1 +
+		(target - 1) *
+			marketWeight
+	);
+};
+
+const applyFootballPositionValue = (
+	pos: string,
+	value: number,
+): number =>
+	value *
+	getFootballPositionValueMultiplier(
+		pos,
+		value,
+	);
+
 /**
  * Returns a numeric value for a given player, representing is general worth to a typical team
  * (i.e. ignoring how well he fits in with his teammates and the team's strategy/finances). It
@@ -134,6 +183,18 @@ const value = (
 		} else if (pos === "K" || pos === "P") {
 			current *= 0.7;
 			potential *= 0.7;
+		} else {
+			current =
+				applyFootballPositionValue(
+					pos,
+					current,
+				);
+
+			potential =
+				applyFootballPositionValue(
+					pos,
+					potential,
+				);
 		}
 	}
 

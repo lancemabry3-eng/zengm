@@ -43,8 +43,9 @@ export const monteCarloPot = async ({
 		bySport({
 			baseball: true,
 			basketball:
-				usePotEstimator || g.get("numActiveTeams") >= TOO_MANY_TEAMS_TOO_SLOW,
-			football: true,
+				usePotEstimator ||
+				g.get("numActiveTeams") >= TOO_MANY_TEAMS_TOO_SLOW,
+			football: usePotEstimator !== false,
 			hockey: true,
 		})
 	) {
@@ -77,7 +78,13 @@ export const monteCarloPot = async ({
 		let maxOvr = pos ? ratings.ovrs[pos] : ratings.ovr;
 
 		for (let ageTemp = age + 1; ageTemp < 30; ageTemp++) {
-			await developSeason(copiedRatings, ageTemp, srID, DEFAULT_LEVEL, true);
+			await developSeason(
+				copiedRatings,
+				ageTemp,
+				srID,
+				DEFAULT_LEVEL,
+				true,
+			);
 
 			const currentOvr = ovr(copiedRatings, pos);
 
@@ -89,7 +96,9 @@ export const monteCarloPot = async ({
 		maxOvrs.push(maxOvr);
 	}
 
-	return maxOvrs.sort((a, b) => a - b)[Math.floor(0.75 * NUM_SIMULATIONS)];
+	return maxOvrs.sort(
+		(a, b) => a - b,
+	)[Math.floor(0.75 * NUM_SIMULATIONS)];
 };
 
 /**
@@ -136,7 +145,13 @@ const develop = async (
 		}
 
 		if (!ratings.locked) {
-			await developSeason(ratings, age, p.srID, coachingLevel, false);
+			await developSeason(
+				ratings,
+				age,
+				p.srID,
+				coachingLevel,
+				false,
+			);
 		}
 	}
 
@@ -147,7 +162,11 @@ const develop = async (
 			ratings.ovr = ovr(ratings);
 
 			if (!skipPot) {
-				ratings.pot = await monteCarloPot({ ratings, age, srID: p.srID });
+				ratings.pot = await monteCarloPot({
+					ratings,
+					age,
+					srID: p.srID,
+				});
 			}
 
 			if (typeof p.pos === "string") {
@@ -163,7 +182,10 @@ const develop = async (
 			ratings.ovrs = POSITIONS.reduce((ovrs, pos2) => {
 				ovrs[pos2] = ovr(ratings, pos2);
 
-				if (!NOT_REAL_POSITIONS.has(pos2) && ovrs[pos2] > maxOvr) {
+				if (
+					!NOT_REAL_POSITIONS.has(pos2) &&
+					ovrs[pos2] > maxOvr
+				) {
 					pos = pos2;
 					maxOvr = ovrs[pos2];
 				}
@@ -171,20 +193,30 @@ const develop = async (
 				return ovrs;
 			}, {});
 
+			if (pos === undefined) {
+				throw new Error("Should never happen");
+			}
+
+			const primaryPosForPot =
+				typeof p.pos === "string"
+					? p.pos
+					: pos;
+
 			if (!skipPot) {
 				ratings.pots = {};
+
 				for (const pos2 of POSITIONS) {
 					ratings.pots[pos2] = await monteCarloPot({
 						ratings,
 						age,
 						srID: p.srID,
 						pos: pos2,
+						usePotEstimator:
+							__SPORT === "football"
+								? pos2 !== primaryPosForPot
+								: undefined,
 					});
 				}
-			}
-
-			if (pos === undefined) {
-				throw new Error("Should never happen");
 			}
 
 			if (typeof p.pos === "string") {
@@ -205,11 +237,13 @@ const develop = async (
 				(ratings as any).stre,
 				ratings.pos,
 			);
+
 			if (p.ratings.length <= 1) {
 				p.weight = newWeight;
 			} else {
 				// Not a new player? Don't adjust too much.
 				const oldWeight = p.weight;
+
 				if (newWeight - oldWeight > 10) {
 					p.weight = oldWeight + 10;
 				} else if (newWeight - oldWeight < -10) {
