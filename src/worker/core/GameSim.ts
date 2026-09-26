@@ -7,6 +7,12 @@ import GameSimBaseball from "./GameSim.baseball/index.ts";
 import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
 import {
+	getPassProtectionMatchups,
+	getPassRushMatchupStrength,
+	getRunBlockingMatchups,
+	getRunStopMatchupStrength,
+} from "./GameSim.football/getCompositeFactor.ts";
+import {
 	chooseDefensivePlayConcept,
 	getBaseDefensiveFront,
 	getCoverageDefenderWeight,
@@ -2256,6 +2262,16 @@ class GameSimFootballRealism extends GameSimFootball {
 			rbw =
 				new Map();
 
+			const runBlockingMatchups =
+				getRunBlockingMatchups(
+					this.playersOnField[
+						o
+					],
+					this.playersOnField[
+						d
+					],
+				);
+
 			const addBlockAttempt = (
 				blocker:
 					PlayerGameSim,
@@ -2264,14 +2280,31 @@ class GameSimFootballRealism extends GameSimFootball {
 					| "Other",
 				baselineRatio:
 					number,
+				matchupStrength?:
+					number,
 			) => {
+				const teamRunStopping =
+					this.team[d]
+						.compositeRating
+						.runStopping;
+
+				const opponentStrength =
+					matchupStrength ===
+					undefined
+						? teamRunStopping
+						: 0.35 *
+								teamRunStopping +
+							0.65 *
+								matchupStrength;
+
 				const ratio =
 					blocker
 						.compositeRating
 						.runBlocking /
-					this.team[d]
-						.compositeRating
-						.runStopping;
+					Math.max(
+						0.05,
+						opponentStrength,
+					);
 
 				const probWin =
 					helpers.bound(
@@ -2305,13 +2338,30 @@ class GameSimFootballRealism extends GameSimFootball {
 					i < ol.length;
 					i++
 				) {
+					const blocker =
+						ol[i]!;
+
+					const defender =
+						runBlockingMatchups.get(
+							blocker,
+						);
+
+					const matchupStrength =
+						defender
+							? getRunStopMatchupStrength(
+									defender,
+									i,
+								)
+							: undefined;
+
 					addBlockAttempt(
-						ol[i]!,
+						blocker,
 						"OL",
 						runEffects
 							.olBaselines[
 							i
 						] ?? 1,
+						matchupStrength,
 					);
 				}
 			}
@@ -2389,6 +2439,77 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 		}
 
+		let runBlockingExecutionMultiplier =
+			1;
+
+		if (
+			!qbScramble &&
+			rbw
+		) {
+			const ol =
+				this.playersOnField[
+					o
+				].OL ?? [];
+
+			let weightedWins =
+				0;
+
+			let totalWeight =
+				0;
+
+			for (
+				const [
+					blocker,
+					result,
+				] of rbw
+			) {
+				const slotIndex =
+					result.type ===
+					"OL"
+						? ol.indexOf(
+								blocker,
+							)
+						: -1;
+
+				const weight =
+					result.type ===
+					"OL"
+						? slotIndex ===
+								0 ||
+							slotIndex ===
+								4
+							? 1.1
+							: 1
+						: 0.35;
+
+				totalWeight +=
+					weight;
+
+				if (result.won) {
+					weightedWins +=
+						weight;
+				}
+			}
+
+			if (
+				totalWeight > 0
+			) {
+				const winRate =
+					weightedWins /
+					totalWeight;
+
+				runBlockingExecutionMultiplier =
+					helpers.bound(
+						1 +
+							(winRate -
+								0.5) *
+								0.18,
+						0.9,
+						1.1,
+					);
+			}
+		}
+
 		this.playByPlay.logEvent({
 			type: "handoff",
 			clock: this.clock,
@@ -2419,6 +2540,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			helpers.bound(
 				(defensiveScrambleYardsMultiplier *
 					scrambleModifier *
+					runBlockingExecutionMultiplier *
 					(3.5 *
 						0.5 *
 						(p
@@ -2866,6 +2988,16 @@ class GameSimFootballRealism extends GameSimFootball {
 				}
 			>();
 
+		const passProtectionMatchups =
+			getPassProtectionMatchups(
+				this.playersOnField[
+					o
+				],
+				this.playersOnField[
+					d
+				],
+			);
+
 		const addBlockAttempt = (
 			p: PlayerGameSim,
 			type:
@@ -2873,13 +3005,30 @@ class GameSimFootballRealism extends GameSimFootball {
 				| "Other",
 			baselineRatio:
 				number,
+			matchupStrength?:
+				number,
 		) => {
-			const ratio =
-				p.compositeRating
-					.passBlocking /
+			const teamPassRushing =
 				this.team[d]
 					.compositeRating
 					.passRushing;
+
+			const opponentStrength =
+				matchupStrength ===
+				undefined
+					? teamPassRushing
+					: 0.35 *
+							teamPassRushing +
+						0.65 *
+							matchupStrength;
+
+			const ratio =
+				p.compositeRating
+					.passBlocking /
+				Math.max(
+					0.05,
+					opponentStrength,
+				);
 
 			const probWin =
 				helpers.bound(
@@ -2922,12 +3071,29 @@ class GameSimFootballRealism extends GameSimFootball {
 				i < ol.length;
 				i++
 			) {
+				const blocker =
+					ol[i]!;
+
+				const defender =
+					passProtectionMatchups.get(
+						blocker,
+					);
+
+				const matchupStrength =
+					defender
+						? getPassRushMatchupStrength(
+								defender,
+								i,
+							)
+						: undefined;
+
 				addBlockAttempt(
-					ol[i]!,
+					blocker,
 					"OL",
 					passBlockBaselines[
 						i
 					] ?? 1,
+					matchupStrength,
 				);
 			}
 		}
