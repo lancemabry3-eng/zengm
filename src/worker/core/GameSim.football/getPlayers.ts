@@ -25,6 +25,51 @@ const roleDepthCache = new WeakMap<
 	Map<string, PlayerGameSim[]>
 >();
 
+/*
+ * These are the role-labeled slots shown on the football
+ * depth-chart UI.
+ *
+ * A healthy player manually placed in one of these slots
+ * should keep that assignment in game simulation. The role
+ * optimizer may replace that player when injured, but should
+ * not silently undo a healthy manual depth-chart decision.
+ */
+const MANUAL_ROLE_SLOTS: Partial<
+	Record<Position, FunctionalRole[]>
+> = {
+	OL: [
+		"LT",
+		"LG",
+		"C",
+		"RG",
+		"RT",
+	],
+	WR: [
+		"WR_X",
+		"WR_Z",
+		"WR_SLOT",
+	],
+	LB: [
+		"MIKE",
+		"WILL",
+		"SAM",
+		"LB_EDGE",
+	],
+	CB: [
+		"CB_OUTSIDE",
+		"CB_OUTSIDE",
+		"CB_SLOT",
+	],
+	S: [
+		"FS",
+		"SS",
+		"BOX_SAFETY",
+	],
+};
+
+const MANUAL_ROLE_ASSIGNMENT_BONUS =
+	500;
+
 const getDefensiveCoachingDecisionExponent = (
 	team: TeamGameSim,
 ): number => {
@@ -102,14 +147,16 @@ const getTeamAvailabilityKey = (
 const getRoleCacheKey = (
 	depth: PlayerGameSim[],
 	roles: FunctionalRole[],
+	pos?: Position,
 ): string =>
-	`${roles.join("|")}::${getDepthAvailabilityKey(
+	`${pos ?? ""}::${roles.join("|")}::${getDepthAvailabilityKey(
 		depth,
 	)}`;
 
 export const getRoleBasedDepth = (
 	depth: PlayerGameSim[],
 	roles: FunctionalRole[],
+	pos?: Position,
 ): PlayerGameSim[] => {
 	if (roles.length === 0 || depth.length < roles.length) {
 		return depth;
@@ -118,6 +165,7 @@ export const getRoleBasedDepth = (
 	const cacheKey = getRoleCacheKey(
 		depth,
 		roles,
+		pos,
 	);
 	let cacheForDepth = roleDepthCache.get(depth);
 	if (!cacheForDepth) {
@@ -146,6 +194,71 @@ export const getRoleBasedDepth = (
 
 		const role = roles[roleIndex]!;
 
+		let manualSlotIndex:
+			| number
+			| undefined;
+
+		const manualSlots =
+			pos === undefined
+				? undefined
+				: MANUAL_ROLE_SLOTS[pos];
+
+		if (manualSlots) {
+			let requestedOccurrence =
+				0;
+
+			for (
+				let i = 0;
+				i <= roleIndex;
+				i++
+			) {
+				if (
+					roles[i] ===
+					role
+				) {
+					requestedOccurrence +=
+						1;
+				}
+			}
+
+			let seenOccurrence =
+				0;
+
+			for (
+				let i = 0;
+				i <
+				manualSlots.length;
+				i++
+			) {
+				if (
+					manualSlots[i] !==
+					role
+				) {
+					continue;
+				}
+
+				seenOccurrence +=
+					1;
+
+				if (
+					seenOccurrence ===
+					requestedOccurrence
+				) {
+					manualSlotIndex =
+						i;
+					break;
+				}
+			}
+		}
+
+		const manuallyAssignedPlayer =
+			manualSlotIndex ===
+				undefined
+				? undefined
+				: depth[
+						manualSlotIndex
+					];
+
 		for (const p of depth) {
 			if (usedPlayerIds.has(p.id)) {
 				continue;
@@ -159,10 +272,18 @@ export const getRoleBasedDepth = (
 			usedPlayerIds.add(p.id);
 			currentPlayers.push(p);
 
+			const manualAssignmentBonus =
+				!p.injured &&
+				manuallyAssignedPlayer?.id ===
+					p.id
+					? MANUAL_ROLE_ASSIGNMENT_BONUS
+					: 0;
+
 			search(
 				roleIndex + 1,
 				totalScore +
 					roleScore +
+					manualAssignmentBonus +
 					(p.injured
 						? -1000
 						: 0),
@@ -295,6 +416,7 @@ export const getOffensivePersonnelFit = (
 			getRoleBasedDepth(
 				depth,
 				roles,
+				pos,
 			);
 
 		for (
@@ -1482,6 +1604,7 @@ const getDefensiveFrontFitScore = (
 			getRoleBasedDepth(
 				depth,
 				roles,
+				pos,
 			);
 
 		for (
@@ -1594,6 +1717,7 @@ export const getFormationDepth = (
 	return getRoleBasedDepth(
 		depth,
 		roles,
+		pos,
 	);
 };
 
