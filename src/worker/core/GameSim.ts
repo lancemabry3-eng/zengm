@@ -12,6 +12,7 @@ import {
 	getPassRushMatchupStrength,
 	getRunBlockingMatchups,
 	getRunBlockSlotWeight,
+	getRunDisruptionLevel,
 	getRunExtraBlockWeight,
 	getRunStopMatchupStrength,
 } from "./GameSim.football/getCompositeFactor.ts";
@@ -2716,6 +2717,31 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 		}
 
+		let runDisruptionLevel =
+			0;
+
+		if (
+			!qbScramble &&
+			rbw &&
+			runBlockingMatchups &&
+			runConcept !==
+				undefined
+		) {
+			runDisruptionLevel =
+				getRunDisruptionLevel(
+					this.playersOnField[
+						o
+					],
+					rbw,
+					runBlockingMatchups,
+					runConcept,
+					this.team[
+						d
+					].compositeRating
+						.runStopping,
+				);
+		}
+
 		this.playByPlay.logEvent({
 			type: "handoff",
 			clock: this.clock,
@@ -2765,6 +2791,11 @@ class GameSimFootballRealism extends GameSimFootball {
 				15,
 			);
 
+		const disruptionMeanMultiplier =
+			1 -
+			0.08 *
+				runDisruptionLevel;
+
 		const meanYds =
 			runEffects
 				? helpers.bound(
@@ -2772,7 +2803,8 @@ class GameSimFootballRealism extends GameSimFootball {
 							runEffects
 								.meanMultiplier *
 							defensiveRunEffects
-								.meanMultiplier,
+								.meanMultiplier *
+							disruptionMeanMultiplier,
 						runEffects
 							.minYds,
 						runEffects
@@ -2803,13 +2835,47 @@ class GameSimFootballRealism extends GameSimFootball {
 				),
 			);
 
+		const disruptionStuffChance =
+			qbScramble
+				? 0
+				: 0.16 *
+					runDisruptionLevel **
+						1.5;
+
+		let runStuffed =
+			false;
+
 		if (
+			Math.random() <
+			disruptionStuffChance
+		) {
+			runStuffed =
+				true;
+
+			ydsRaw =
+				Math.min(
+					ydsRaw,
+					randInt(
+						-4,
+						1,
+					),
+				);
+		}
+
+		const disruptionExplosiveMultiplier =
+			1 -
+			0.5 *
+				runDisruptionLevel;
+
+		if (
+			!runStuffed &&
 			Math.random() <
 			(runEffects
 				?.explosiveChance ??
 				0.01) *
 				defensiveRunEffects
-					.explosiveMultiplier
+					.explosiveMultiplier *
+				disruptionExplosiveMultiplier
 		) {
 			ydsRaw +=
 				randInt(
@@ -2820,7 +2886,10 @@ class GameSimFootballRealism extends GameSimFootball {
 				);
 		}
 
-		if (ydsRaw < 0) {
+		if (
+			ydsRaw < 0 &&
+			!runStuffed
+		) {
 			ydsRaw +=
 				randInt(
 					0,
