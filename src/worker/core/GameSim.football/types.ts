@@ -55,6 +55,22 @@ export type RunConcept =
 	| "QB_POWER"
 	| "JET_SWEEP";
 
+/*
+ * Run direction is kept separate from the concept itself.
+ *
+ * This lets the same concept behave differently to the left,
+ * middle, or right without multiplying the number of concepts.
+ *
+ * Direction is optional on OffensivePlayConcept while the
+ * realism layer is being integrated so existing call sites and
+ * older simulation paths remain safe. Undefined direction is
+ * treated as MIDDLE by the execution helpers.
+ */
+export type RunDirection =
+	| "LEFT"
+	| "MIDDLE"
+	| "RIGHT";
+
 export type PassConcept =
 	| "QUICK_GAME"
 	| "INTERMEDIATE"
@@ -74,6 +90,7 @@ export type OffensivePlayConcept =
 	| {
 			type: "run";
 			concept: RunConcept;
+			direction?: RunDirection;
 	  }
 	| {
 			type: "pass";
