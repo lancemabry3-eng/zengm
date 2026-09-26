@@ -4321,4 +4321,4 @@ const GameSim = bySport<
 		GameSimHockey,
 });
 
-export default GameSim;
+export default GameSim
