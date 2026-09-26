@@ -4079,7 +4079,10 @@ class GameSimFootballRealism extends GameSimFootball {
 						helpTarget,
 					);
 
-				if (existingResult) {
+				if (
+					existingResult &&
+					!existingResult.won
+				) {
 					const defender =
 						passProtectionMatchups.get(
 							helpTarget,
@@ -4137,30 +4140,36 @@ class GameSimFootballRealism extends GameSimFootball {
 							] ??
 							1;
 
-						const probWin =
+						const rescueProbability =
 							helpers.bound(
-								(ratio -
-									baselineRatio) *
-									(0.45 /
-										0.25) +
-									0.5 +
-									(passProtectionHelpBonuses.get(
-										helpTarget,
-									) ??
-										0),
+								(
+									(ratio -
+										baselineRatio) *
+										(0.45 /
+											0.25) +
+										0.5 +
+										(passProtectionHelpBonuses.get(
+											helpTarget,
+										) ??
+											0)
+								) *
+									0.6,
 								0,
-								0.98,
+								0.75,
 							);
 
-						pbw.set(
-							helpTarget,
-							{
-								...existingResult,
-								won:
-									Math.random() <
-									probWin,
-							},
-						);
+						if (
+							Math.random() <
+							rescueProbability
+						) {
+							pbw.set(
+								helpTarget,
+								{
+									...existingResult,
+									won: true,
+								},
+							);
+						}
 					}
 				}
 			}
