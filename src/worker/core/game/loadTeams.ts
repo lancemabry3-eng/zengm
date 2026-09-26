@@ -46,12 +46,10 @@ export const isGame6EliminationGameOrGame7 = async (
 					const numGamesSeries =
 						series.away.won + series.home.won;
 
-					// Game 7?
 					if (numGamesSeries === numGames - 1) {
 						return true;
 					}
 
-					// Elimination game 6?
 					if (numGamesSeries === numGames - 2) {
 						const eliminationGame =
 							series.home.tid === tid
@@ -192,9 +190,6 @@ export const processTeam = async (
 		}
 
 		if (__SPORT === "basketball") {
-			// ba is still recorded as a player stat for some reason,
-			// but not a team stat, so we need to add it here so it
-			// gets tracked for the box score correctly
 			teamStats.ba = 0;
 		}
 	}
@@ -211,7 +206,6 @@ export const processTeam = async (
 		);
 	}
 
-	// Initialize team composite rating object
 	const compositeRating: any = {};
 
 	if (__SPORT === "basketball") {
@@ -234,7 +228,6 @@ export const processTeam = async (
 			teamInput,
 		);
 
-	// Injury-adjusted ovr
 	const playersCurrent =
 		players.map((p) => {
 			const ratings =
@@ -278,12 +271,15 @@ export const processTeam = async (
 	 * level that powers the existing player-development
 	 * coaching effect.
 	 *
-	 * Synthetic All-Star teams do not have real budget
-	 * history, so they intentionally keep coaching undefined.
+	 * Synthetic All-Star and exhibition teams do not have
+	 * trustworthy league budget history, so they intentionally
+	 * keep coaching undefined. The game-sim coaching helpers
+	 * treat undefined as the neutral/default decision level.
 	 */
 	const coachingLevel =
 		__SPORT === "football" &&
-		!allStarGame
+		!allStarGame &&
+		!exhibitionGame
 			? await getLevelLastThree(
 					"coaching",
 					{
@@ -345,8 +341,6 @@ export const processTeam = async (
 		SEASON_STATS_KEYS !==
 		undefined
 	) {
-		// Only look at regular season stats for All-Star Game,
-		// in case All-Star Game is in playoffs
 		const regularSeason =
 			allStarGame ||
 			g.get("phase") <
@@ -385,8 +379,6 @@ export const processTeam = async (
 					.gamesRemaining,
 			);
 
-		// p.jerseyNumber fallback is for exhibition game players
-		// for the current season with no stats
 		const jerseyNumber =
 			p.stats.length > 0
 				? p.stats.at(-1)
@@ -434,13 +426,6 @@ export const processTeam = async (
 			ovrs: rating.ovrs,
 		};
 
-		/*
-		 * Football role ratings are calculated once when
-		 * the game-sim player is created.
-		 *
-		 * Formation logic can then use these cached values
-		 * without recalculating role formulas every snap.
-		 */
 		if (__SPORT === "football") {
 			(p2 as any).roleOvrs =
 				getRoleOvrs(
@@ -448,8 +433,6 @@ export const processTeam = async (
 				);
 		}
 
-		// Reset ptModifier for AI teams. This should not be
-		// necessary since it should always be 1, but let's be safe.
 		if (
 			!g
 				.get("userTids")
@@ -465,8 +448,6 @@ export const processTeam = async (
 				number
 			> = {};
 
-		// These use the same formulas as the skill definitions
-		// in player.skills!
 		for (
 			const [
 				k,
@@ -576,9 +557,6 @@ export const processTeam = async (
 
 		p2.stat = {
 			...playerStats,
-
-			// Starters will play at least 3 minutes before being
-			// subbed out, after that the default here doesn't matter
 			courtTime: -3,
 			benchTime: 0,
 			energy: 1,
@@ -699,7 +677,6 @@ const loadTeams = async (
 		tids.includes(-1) &&
 		tids.includes(-2)
 	) {
-		// All-Star Game
 		const allStars =
 			await allStar.getOrCreate(
 				g.get("season"),
@@ -768,7 +745,6 @@ const loadTeams = async (
 						pid,
 					);
 
-				// Can happen if player was deleted before starting sim
 				if (p) {
 					players.push(p);
 				}
