@@ -156,6 +156,9 @@ export const processTeam = async (
 		tid: number;
 		playThroughInjuries: [number, number];
 		depth?: any;
+		budget?: {
+			coaching: number;
+		};
 	},
 	teamSeason: {
 		won: number;
@@ -297,6 +300,11 @@ export const processTeam = async (
 		},
 		compositeRating,
 		depth: teamInput.depth,
+		coachingLevel:
+			__SPORT === "football"
+				? teamInput.budget
+						?.coaching
+				: undefined,
 	};
 
 	const playThroughInjuries =
@@ -566,7 +574,7 @@ export const processTeam = async (
 		if (player.stats.byPos) {
 			for (
 				const key of
-				player.stats.byPos
+					player.stats.byPos
 			) {
 				p2.stat[key] = [];
 			}
