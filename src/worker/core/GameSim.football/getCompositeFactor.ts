@@ -4,6 +4,7 @@ import getPlayers from "./getPlayers.ts";
 import type {
 	PlayerGameSim,
 	PlayersOnField,
+	RunConcept,
 } from "./types.ts";
 
 export type CompositeFactorParams = {
@@ -335,6 +336,193 @@ export const getBlockingFactors = (
 		passBlocking,
 		runBlocking,
 	];
+};
+
+/*
+ * RUN-CONCEPT LANE WEIGHTS
+ *
+ * These weights describe which blockers matter most to the
+ * success of a particular rushing concept.
+ *
+ * OL slot order:
+ *
+ * 0 = LT
+ * 1 = LG
+ * 2 = C
+ * 3 = RG
+ * 4 = RT
+ *
+ * The average OL weight for every concept is kept close to 1
+ * so this changes where execution comes from more than it
+ * changes league-wide rushing efficiency.
+ */
+const RUN_BLOCK_SLOT_WEIGHTS: Record<
+	RunConcept,
+	readonly [
+		number,
+		number,
+		number,
+		number,
+		number,
+	]
+> = {
+	INSIDE_ZONE: [
+		0.75,
+		1.15,
+		1.2,
+		1.15,
+		0.75,
+	],
+	OUTSIDE_ZONE: [
+		1.25,
+		1.05,
+		0.7,
+		1.05,
+		1.25,
+	],
+	POWER: [
+		0.8,
+		1.25,
+		1.15,
+		1.25,
+		0.8,
+	],
+	COUNTER: [
+		1.05,
+		1.3,
+		0.7,
+		1.3,
+		1.05,
+	],
+	DRAW: [
+		1,
+		1,
+		1,
+		1,
+		1,
+	],
+	READ_OPTION: [
+		1.2,
+		1,
+		0.8,
+		1,
+		1.2,
+	],
+	QB_POWER: [
+		0.85,
+		1.25,
+		1.15,
+		1.25,
+		0.85,
+	],
+	JET_SWEEP: [
+		1.35,
+		0.95,
+		0.55,
+		0.95,
+		1.35,
+	],
+};
+
+export const getRunBlockSlotWeight = (
+	concept: RunConcept,
+	slotIndex: number,
+): number => {
+	return (
+		RUN_BLOCK_SLOT_WEIGHTS[
+			concept
+		][slotIndex] ??
+		1
+	);
+};
+
+/*
+ * Extra blockers also matter differently by concept.
+ *
+ * TE:
+ *   Most important on perimeter runs and heavy downhill runs.
+ *
+ * RB:
+ *   Most important as a lead/help blocker on Power and
+ *   designed QB runs.
+ *
+ * WR:
+ *   Most important when the run is trying to reach the edge.
+ */
+export const getRunExtraBlockWeight = (
+	concept: RunConcept,
+	position: "TE" | "RB" | "WR",
+): number => {
+	if (position === "TE") {
+		if (
+			concept === "OUTSIDE_ZONE" ||
+			concept === "JET_SWEEP"
+		) {
+			return 0.75;
+		}
+
+		if (
+			concept === "POWER" ||
+			concept === "QB_POWER"
+		) {
+			return 0.65;
+		}
+
+		if (
+			concept === "INSIDE_ZONE" ||
+			concept === "COUNTER" ||
+			concept === "READ_OPTION"
+		) {
+			return 0.5;
+		}
+
+		return 0.3;
+	}
+
+	if (position === "RB") {
+		if (
+			concept === "POWER" ||
+			concept === "QB_POWER"
+		) {
+			return 0.8;
+		}
+
+		if (concept === "COUNTER") {
+			return 0.6;
+		}
+
+		if (
+			concept === "INSIDE_ZONE" ||
+			concept === "OUTSIDE_ZONE"
+		) {
+			return 0.4;
+		}
+
+		if (concept === "READ_OPTION") {
+			return 0.25;
+		}
+
+		return 0.2;
+	}
+
+	if (
+		concept === "JET_SWEEP"
+	) {
+		return 0.9;
+	}
+
+	if (
+		concept === "OUTSIDE_ZONE" ||
+		concept === "READ_OPTION"
+	) {
+		return 0.55;
+	}
+
+	if (concept === "COUNTER") {
+		return 0.35;
+	}
+
+	return 0.2;
 };
 
 /*
