@@ -6,6 +6,42 @@ import type {
 import { last } from "../../../common/utils.ts";
 import { realGauss } from "../../../common/random.ts";
 
+const FOOTBALL_POSITION_MARKET_MULTIPLIERS: Record<string, number> = {
+	RB: 0.82,
+	WR: 1.08,
+	TE: 0.92,
+	OL: 1.08,
+	DL: 1.06,
+	LB: 0.94,
+	CB: 1.07,
+	S: 0.95,
+};
+
+const getFootballPositionMarketMultiplier = (
+	pos: string,
+	value: number,
+): number => {
+	const target =
+		FOOTBALL_POSITION_MARKET_MULTIPLIERS[pos] ?? 1;
+
+	/*
+	 * Replacement-level players should still live near the
+	 * minimum-contract market. Positional premiums become more
+	 * important as the player becomes a legitimate starter/star.
+	 */
+	const marketWeight = helpers.bound(
+		(value - 45) / 35,
+		0,
+		1,
+	);
+
+	return (
+		1 +
+		(target - 1) *
+			marketWeight
+	);
+};
+
 /**
  * Generate a contract for a player.
  *
@@ -36,6 +72,12 @@ const genContract = (
 			}
 		} else if (ratings.pos === "K" || ratings.pos === "P") {
 			factor *= 0.25;
+		} else {
+			factor2 *=
+				getFootballPositionMarketMultiplier(
+					ratings.pos,
+					p.value,
+				);
 		}
 	}
 
