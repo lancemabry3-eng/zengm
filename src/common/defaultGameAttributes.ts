@@ -156,7 +156,6 @@ for (const [sport, keys] of Object.entries(gameAttributesKeysSportSpecific)) {
 	}
 }
 
-// Define awards up here mostly for achievements, we need to know what the default awards are for some categories across sports
 export const defaultAwards = {
 	all: bySport<AwardSettingTeam>({
 		baseball: {
@@ -471,8 +470,6 @@ export const defaultAwardsHockey = {
 	goy: {
 		shortName: "GOY",
 		name: "Goalie of the Year",
-
-		// Originally wrote this as "(gps / gpGoalie) * min(0.75 * teamGp, gpGoalie)" but that behaves poorly when gpGoalie is 0
 		formula:
 			"gps * min(0.75 * teamGp / gpGoalie, 1)",
 		showStats: "goalkeeping",
@@ -542,19 +539,15 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 	forceRetireSeasons: 0,
 	minRetireAge: 26,
 	groupScheduleSeries: false,
-
 	salaryCapType: "soft",
-
 	maxOvertimes:
 		wrapFromStart(null),
 	shootoutRounds:
 		wrapFromStart(0),
 	maxOvertimesPlayoffs: null,
 	shootoutRoundsPlayoffs: 0,
-
 	otl:
 		wrapFromStart(false),
-
 	draftType: "nba2027",
 	draftLotteryCustomChances: [
 		140,
@@ -597,7 +590,6 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 		2,
 	],
 	rookiesCanRefuse: true,
-
 	pace: 100,
 	threePointers: true,
 	threePointTendencyFactor: 1,
@@ -611,7 +603,6 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 	expansionDraft: {
 		phase: "setup",
 	},
-
 	challengeNoDraftPicks: false,
 	challengeNoFreeAgents: false,
 	challengeNoRatings: false,
@@ -686,7 +677,6 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 	autoRelocateRebrand: true,
 	autoRelocateRealign: true,
 	alwaysShowCountry: false,
-
 	lid: 0,
 	userTid:
 		wrapFromStart(0),
@@ -702,13 +692,13 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 	fantasyPoints: undefined,
 
 	passFactor: 1,
-	rushYdsFactor: 0.74,
-	passYdsFactor: 1,
-	completionFactor: 1.22,
+	rushYdsFactor: 0.73,
+	passYdsFactor: 1.1,
+	completionFactor: 1.4,
 	scrambleFactor: 1,
-	sackFactor: 1.3,
-	fumbleFactor: 4,
-	intFactor: 0.5,
+	sackFactor: 1.42,
+	fumbleFactor: 7,
+	intFactor: 0.32,
 	fgAccuracyFactor: 1,
 	fourthDownFactor: 1,
 	onsideFactor: 1,
@@ -858,7 +848,7 @@ export const footballOverrides: Partial<GameAttributesLeagueWithHistory> =
 					"standard",
 				draftPickAutoContract:
 					false,
-				pace: 1,
+				pace: 1.07,
 				hofFactor: 1.2,
 				neutralSite:
 					"finals",
