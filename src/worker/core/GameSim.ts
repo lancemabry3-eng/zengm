@@ -13,7 +13,8 @@ import {
 	getPassRushFreeRusherStrength,
 	getPassRushMatchupStrength,
 	getPassRushPlan,
-	getRunBlockingMatchups,
+	getRunBlockingComboHelpFactor,
+	getRunBlockingPlan,
 	getRunBlockSlotWeight,
 	getRunDisruptionLevel,
 	getRunExtraBlockWeight,
@@ -2434,15 +2435,54 @@ class GameSimFootballRealism extends GameSimFootball {
 			rbw =
 				new Map();
 
-			runBlockingMatchups =
-				getRunBlockingMatchups(
+			const runBlockingPlan =
+				getRunBlockingPlan(
 					this.playersOnField[
 						o
 					],
 					this.playersOnField[
 						d
 					],
+					runConcept,
 				);
+
+			runBlockingMatchups =
+				runBlockingPlan.matchups;
+
+			const runBlockingComboBonuses =
+				new Map<
+					PlayerGameSim,
+					number
+				>();
+
+			for (
+				const [
+					target,
+					helpersForTarget,
+				] of runBlockingPlan
+					.comboAssignments
+			) {
+				let bonus = 0;
+
+				for (
+					const helper of
+						helpersForTarget
+				) {
+					bonus +=
+						getRunBlockingComboHelpFactor(
+							helper,
+							runConcept,
+						);
+				}
+
+				runBlockingComboBonuses.set(
+					target,
+					Math.min(
+						0.18,
+						bonus,
+					),
+				);
+			}
 
 			const addBlockAttempt = (
 				blocker:
@@ -2479,15 +2519,23 @@ class GameSimFootballRealism extends GameSimFootball {
 						opponentStrength,
 					);
 
+				const comboBonus =
+					type === "OL"
+						? runBlockingComboBonuses.get(
+								blocker,
+							) ?? 0
+						: 0;
+
 				const probWin =
 					helpers.bound(
 						(ratio -
 							baselineRatio) *
 							(0.65 /
 								0.25) +
-							0.3,
+							0.3 +
+							comboBonus,
 						0,
-						0.96,
+						0.98,
 					);
 
 				rbw!.set(
