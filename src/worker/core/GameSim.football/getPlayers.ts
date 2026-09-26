@@ -1,3 +1,4 @@
+import { DEFAULT_LEVEL } from "../../../common/budgetLevels.ts";
 import { POSITIONS } from "../../../common/constants.football.ts";
 import { choice } from "../../../common/random.ts";
 import type { Position } from "../../../common/types.football.ts";
@@ -23,6 +24,53 @@ const roleDepthCache = new WeakMap<
 	PlayerGameSim[],
 	Map<string, PlayerGameSim[]>
 >();
+
+const getDefensiveCoachingDecisionExponent = (
+	team: TeamGameSim,
+): number => {
+	const level =
+		team.coachingLevel;
+
+	if (
+		level === undefined ||
+		Number.isNaN(level)
+	) {
+		return 1;
+	}
+
+	const centered =
+		level >= DEFAULT_LEVEL
+			? (level - DEFAULT_LEVEL) /
+				(100 - DEFAULT_LEVEL)
+			: (level - DEFAULT_LEVEL) /
+				(DEFAULT_LEVEL - 1);
+
+	return helpers.bound(
+		1 +
+			0.28 *
+				centered,
+		0.72,
+		1.28,
+	);
+};
+
+const applyDefensiveCoachingDecisionWeight = (
+	team: TeamGameSim,
+	weight: number,
+): number => {
+	const safeWeight =
+		Math.max(
+			0.0001,
+			weight,
+		);
+
+	return (
+		safeWeight **
+		getDefensiveCoachingDecisionExponent(
+			team,
+		)
+	);
+};
 
 const getRoleCacheKey = (roles: FunctionalRole[]): string => roles.join("|");
 
@@ -1346,10 +1394,16 @@ export const chooseDefensivePlayConcept = (
 							1.3,
 						);
 
-			return Math.max(
-				0.01,
-				situationWeight *
-					fitFactor,
+			const baseWeight =
+				Math.max(
+					0.01,
+					situationWeight *
+						fitFactor,
+				);
+
+			return applyDefensiveCoachingDecisionWeight(
+				team,
+				baseWeight,
 			);
 		},
 	);
