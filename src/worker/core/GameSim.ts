@@ -37,6 +37,7 @@ const footballFatigue = (energy: number, injured: boolean): number => {
 	if (injured) {
 		return 0;
 	}
+
 	return Math.min(1, energy + 0.05);
 };
 
@@ -50,14 +51,24 @@ const applyBaseDefensiveFront = (
 		return {
 			...formation,
 			defensiveFront,
-			def: { DL: 3, LB: 4, CB: 2, S: 2 },
+			def: {
+				DL: 3,
+				LB: 4,
+				CB: 2,
+				S: 2,
+			},
 		};
 	}
 
 	return {
 		...formation,
 		defensiveFront,
-		def: { DL: 4, LB: 3, CB: 2, S: 2 },
+		def: {
+			DL: 4,
+			LB: 3,
+			CB: 2,
+			S: 2,
+		},
 	};
 };
 
@@ -68,6 +79,7 @@ const getNormalFormation = (
 	if (formation.offensivePersonnel === "11") {
 		return formation;
 	}
+
 	return applyBaseDefensiveFront(formation, defense);
 };
 
@@ -158,11 +170,13 @@ const chooseOffensiveFormation = (
 
 	for (const formation of formations.normal) {
 		const personnel = formation.offensivePersonnel;
+
 		if (personnel === undefined) {
 			continue;
 		}
 
 		const fit = getOffensivePersonnelFit(offense, personnel);
+
 		if (fit !== undefined) {
 			fits.set(personnel, fit);
 		}
@@ -416,11 +430,7 @@ const getConceptRosterFactor = (score: number | undefined): number => {
 		return 1;
 	}
 
-	return helpers.bound(
-		1 + (score - 50) / 150,
-		0.8,
-		1.2,
-	);
+	return helpers.bound(1 + (score - 50) / 150, 0.8, 1.2);
 };
 
 const getQbMobilityScore = (qb: PlayerGameSim): number => {
@@ -457,7 +467,11 @@ const getDesignedRunUsageFactor = (
 	if (concept === "JET_SWEEP") {
 		const wrScore =
 			averageDefined([
-				getBestRoleScore(team, "WR", ["WR_Z", "WR_SLOT", "WR_DEEP_THREAT"]),
+				getBestRoleScore(team, "WR", [
+					"WR_Z",
+					"WR_SLOT",
+					"WR_DEEP_THREAT",
+				]),
 				getBestPlayerCompositeScore(team, "WR", "rushing"),
 				getBestPlayerCompositeScore(team, "WR", "speed"),
 			]) ?? 0;
@@ -466,17 +480,10 @@ const getDesignedRunUsageFactor = (
 			return 0.05;
 		}
 
-		return helpers.bound(
-			0.35 + (wrScore - 40) / 35,
-			0.1,
-			1.45,
-		);
+		return helpers.bound(0.35 + (wrScore - 40) / 35, 0.1, 1.45);
 	}
 
-	let bestMobility =
-		qb !== undefined
-			? getQbMobilityScore(qb)
-			: 0;
+	let bestMobility = qb !== undefined ? getQbMobilityScore(qb) : 0;
 
 	if (qb === undefined) {
 		for (const depthQb of team.depth.QB) {
@@ -492,22 +499,14 @@ const getDesignedRunUsageFactor = (
 			return 0.02;
 		}
 
-		return helpers.bound(
-			0.15 + (bestMobility - 52) / 28,
-			0.05,
-			1.5,
-		);
+		return helpers.bound(0.15 + (bestMobility - 52) / 28, 0.05, 1.5);
 	}
 
 	if (bestMobility < 42) {
 		return 0.04;
 	}
 
-	return helpers.bound(
-		0.3 + (bestMobility - 42) / 35,
-		0.08,
-		1.5,
-	);
+	return helpers.bound(0.3 + (bestMobility - 42) / 35, 0.08, 1.5);
 };
 
 const getRunConceptSituationWeight = (
@@ -535,76 +534,139 @@ const getRunConceptSituationWeight = (
 									: 0.7;
 
 	if (personnel === "11") {
-		if (concept === "OUTSIDE_ZONE") weight *= 1.2;
-		else if (concept === "DRAW") weight *= 1.5;
-		else if (concept === "POWER") weight *= 0.75;
-		else if (concept === "READ_OPTION") weight *= 1.25;
-		else if (concept === "QB_POWER") weight *= 0.65;
-		else if (concept === "JET_SWEEP") weight *= 1.35;
+		if (concept === "OUTSIDE_ZONE") {
+			weight *= 1.2;
+		} else if (concept === "DRAW") {
+			weight *= 1.5;
+		} else if (concept === "POWER") {
+			weight *= 0.75;
+		} else if (concept === "READ_OPTION") {
+			weight *= 1.25;
+		} else if (concept === "QB_POWER") {
+			weight *= 0.65;
+		} else if (concept === "JET_SWEEP") {
+			weight *= 1.35;
+		}
 	} else if (personnel === "12") {
-		if (concept === "INSIDE_ZONE") weight *= 1.1;
-		else if (concept === "POWER") weight *= 1.15;
-		else if (concept === "DRAW") weight *= 0.8;
-		else if (concept === "READ_OPTION") weight *= 1.1;
-		else if (concept === "QB_POWER") weight *= 0.9;
-		else if (concept === "JET_SWEEP") weight *= 0.75;
+		if (concept === "INSIDE_ZONE") {
+			weight *= 1.1;
+		} else if (concept === "POWER") {
+			weight *= 1.15;
+		} else if (concept === "DRAW") {
+			weight *= 0.8;
+		} else if (concept === "READ_OPTION") {
+			weight *= 1.1;
+		} else if (concept === "QB_POWER") {
+			weight *= 0.9;
+		} else if (concept === "JET_SWEEP") {
+			weight *= 0.75;
+		}
 	} else if (personnel === "21") {
-		if (concept === "INSIDE_ZONE") weight *= 1.15;
-		else if (concept === "POWER") weight *= 1.35;
-		else if (concept === "COUNTER") weight *= 1.2;
-		else if (concept === "DRAW") weight *= 0.65;
-		else if (concept === "READ_OPTION") weight *= 0.9;
-		else if (concept === "QB_POWER") weight *= 1.1;
-		else if (concept === "JET_SWEEP") weight *= 0.6;
+		if (concept === "INSIDE_ZONE") {
+			weight *= 1.15;
+		} else if (concept === "POWER") {
+			weight *= 1.35;
+		} else if (concept === "COUNTER") {
+			weight *= 1.2;
+		} else if (concept === "DRAW") {
+			weight *= 0.65;
+		} else if (concept === "READ_OPTION") {
+			weight *= 0.9;
+		} else if (concept === "QB_POWER") {
+			weight *= 1.1;
+		} else if (concept === "JET_SWEEP") {
+			weight *= 0.6;
+		}
 	} else {
-		if (concept === "POWER") weight *= 1.6;
-		else if (concept === "INSIDE_ZONE") weight *= 1.25;
-		else if (concept === "COUNTER") weight *= 1.2;
-		else if (concept === "OUTSIDE_ZONE") weight *= 0.7;
-		else if (concept === "DRAW") weight *= 0.4;
-		else if (concept === "READ_OPTION") weight *= 0.65;
-		else if (concept === "QB_POWER") weight *= 1.25;
-		else weight *= 0.35;
+		if (concept === "POWER") {
+			weight *= 1.6;
+		} else if (concept === "INSIDE_ZONE") {
+			weight *= 1.25;
+		} else if (concept === "COUNTER") {
+			weight *= 1.2;
+		} else if (concept === "OUTSIDE_ZONE") {
+			weight *= 0.7;
+		} else if (concept === "DRAW") {
+			weight *= 0.4;
+		} else if (concept === "READ_OPTION") {
+			weight *= 0.65;
+		} else if (concept === "QB_POWER") {
+			weight *= 1.25;
+		} else {
+			weight *= 0.35;
+		}
 	}
 
 	if (toGo <= 2) {
-		if (concept === "POWER") weight *= 2;
-		else if (concept === "INSIDE_ZONE") weight *= 1.35;
-		else if (concept === "COUNTER") weight *= 1.15;
-		else if (concept === "DRAW") weight *= 0.4;
-		else if (concept === "READ_OPTION") weight *= 1.25;
-		else if (concept === "QB_POWER") weight *= 1.7;
-		else weight *= 0.45;
+		if (concept === "POWER") {
+			weight *= 2;
+		} else if (concept === "INSIDE_ZONE") {
+			weight *= 1.35;
+		} else if (concept === "COUNTER") {
+			weight *= 1.15;
+		} else if (concept === "DRAW") {
+			weight *= 0.4;
+		} else if (concept === "READ_OPTION") {
+			weight *= 1.25;
+		} else if (concept === "QB_POWER") {
+			weight *= 1.7;
+		} else {
+			weight *= 0.45;
+		}
 	}
 
 	if (toGo >= 7) {
-		if (concept === "DRAW") weight *= 2;
-		else if (concept === "OUTSIDE_ZONE") weight *= 1.1;
-		else if (concept === "POWER") weight *= 0.6;
-		else if (concept === "COUNTER") weight *= 0.75;
-		else if (concept === "READ_OPTION") weight *= 1.25;
-		else if (concept === "QB_POWER") weight *= 0.55;
-		else if (concept === "JET_SWEEP") weight *= 1.15;
+		if (concept === "DRAW") {
+			weight *= 2;
+		} else if (concept === "OUTSIDE_ZONE") {
+			weight *= 1.1;
+		} else if (concept === "POWER") {
+			weight *= 0.6;
+		} else if (concept === "COUNTER") {
+			weight *= 0.75;
+		} else if (concept === "READ_OPTION") {
+			weight *= 1.25;
+		} else if (concept === "QB_POWER") {
+			weight *= 0.55;
+		} else if (concept === "JET_SWEEP") {
+			weight *= 1.15;
+		}
 	}
 
 	if (down >= 3 && toGo >= 5) {
-		if (concept === "DRAW") weight *= 1.8;
-		else if (concept === "OUTSIDE_ZONE") weight *= 1.1;
-		else if (concept === "POWER") weight *= 0.5;
-		else if (concept === "READ_OPTION") weight *= 1.15;
-		else if (concept === "QB_POWER") weight *= 0.45;
-		else if (concept === "JET_SWEEP") weight *= 1.15;
+		if (concept === "DRAW") {
+			weight *= 1.8;
+		} else if (concept === "OUTSIDE_ZONE") {
+			weight *= 1.1;
+		} else if (concept === "POWER") {
+			weight *= 0.5;
+		} else if (concept === "READ_OPTION") {
+			weight *= 1.15;
+		} else if (concept === "QB_POWER") {
+			weight *= 0.45;
+		} else if (concept === "JET_SWEEP") {
+			weight *= 1.15;
+		}
 	}
 
 	if (scrimmage >= 95) {
-		if (concept === "POWER") weight *= 2.2;
-		else if (concept === "INSIDE_ZONE") weight *= 1.5;
-		else if (concept === "COUNTER") weight *= 1.1;
-		else if (concept === "OUTSIDE_ZONE") weight *= 0.7;
-		else if (concept === "DRAW") weight *= 0.3;
-		else if (concept === "READ_OPTION") weight *= 1.25;
-		else if (concept === "QB_POWER") weight *= 2;
-		else weight *= 0.5;
+		if (concept === "POWER") {
+			weight *= 2.2;
+		} else if (concept === "INSIDE_ZONE") {
+			weight *= 1.5;
+		} else if (concept === "COUNTER") {
+			weight *= 1.1;
+		} else if (concept === "OUTSIDE_ZONE") {
+			weight *= 0.7;
+		} else if (concept === "DRAW") {
+			weight *= 0.3;
+		} else if (concept === "READ_OPTION") {
+			weight *= 1.25;
+		} else if (concept === "QB_POWER") {
+			weight *= 2;
+		} else {
+			weight *= 0.5;
+		}
 	}
 
 	return weight;
@@ -629,55 +691,97 @@ const getPassConceptSituationWeight = (
 						: 1.5;
 
 	if (personnel === "11") {
-		if (concept === "QUICK_GAME") weight *= 1.2;
-		else if (concept === "INTERMEDIATE") weight *= 1.15;
-		else if (concept === "DEEP_SHOT") weight *= 1.3;
-		else if (concept === "PLAY_ACTION") weight *= 0.85;
-		else weight *= 1.15;
+		if (concept === "QUICK_GAME") {
+			weight *= 1.2;
+		} else if (concept === "INTERMEDIATE") {
+			weight *= 1.15;
+		} else if (concept === "DEEP_SHOT") {
+			weight *= 1.3;
+		} else if (concept === "PLAY_ACTION") {
+			weight *= 0.85;
+		} else {
+			weight *= 1.15;
+		}
 	} else if (personnel === "12") {
-		if (concept === "INTERMEDIATE") weight *= 1.1;
-		else if (concept === "PLAY_ACTION") weight *= 1.35;
-		else if (concept === "SCREEN") weight *= 0.8;
+		if (concept === "INTERMEDIATE") {
+			weight *= 1.1;
+		} else if (concept === "PLAY_ACTION") {
+			weight *= 1.35;
+		} else if (concept === "SCREEN") {
+			weight *= 0.8;
+		}
 	} else if (personnel === "21") {
-		if (concept === "PLAY_ACTION") weight *= 1.5;
-		else if (concept === "SCREEN") weight *= 1.2;
-		else if (concept === "DEEP_SHOT") weight *= 0.75;
-		else if (concept === "QUICK_GAME") weight *= 0.85;
+		if (concept === "PLAY_ACTION") {
+			weight *= 1.5;
+		} else if (concept === "SCREEN") {
+			weight *= 1.2;
+		} else if (concept === "DEEP_SHOT") {
+			weight *= 0.75;
+		} else if (concept === "QUICK_GAME") {
+			weight *= 0.85;
+		}
 	} else {
-		if (concept === "PLAY_ACTION") weight *= 1.7;
-		else if (concept === "INTERMEDIATE") weight *= 0.8;
-		else if (concept === "DEEP_SHOT") weight *= 0.5;
-		else if (concept === "QUICK_GAME") weight *= 0.7;
-		else weight *= 0.75;
+		if (concept === "PLAY_ACTION") {
+			weight *= 1.7;
+		} else if (concept === "INTERMEDIATE") {
+			weight *= 0.8;
+		} else if (concept === "DEEP_SHOT") {
+			weight *= 0.5;
+		} else if (concept === "QUICK_GAME") {
+			weight *= 0.7;
+		} else {
+			weight *= 0.75;
+		}
 	}
 
 	if (toGo <= 3) {
-		if (concept === "QUICK_GAME") weight *= 1.4;
-		else if (concept === "SCREEN") weight *= 1.3;
-		else if (concept === "DEEP_SHOT") weight *= 0.6;
-		else if (concept === "PLAY_ACTION") weight *= 1.1;
+		if (concept === "QUICK_GAME") {
+			weight *= 1.4;
+		} else if (concept === "SCREEN") {
+			weight *= 1.3;
+		} else if (concept === "DEEP_SHOT") {
+			weight *= 0.6;
+		} else if (concept === "PLAY_ACTION") {
+			weight *= 1.1;
+		}
 	}
 
 	if (toGo >= 10) {
-		if (concept === "DEEP_SHOT") weight *= 1.5;
-		else if (concept === "INTERMEDIATE") weight *= 1.2;
-		else if (concept === "SCREEN") weight *= 1.2;
-		else if (concept === "QUICK_GAME") weight *= 0.7;
-		else weight *= 0.8;
+		if (concept === "DEEP_SHOT") {
+			weight *= 1.5;
+		} else if (concept === "INTERMEDIATE") {
+			weight *= 1.2;
+		} else if (concept === "SCREEN") {
+			weight *= 1.2;
+		} else if (concept === "QUICK_GAME") {
+			weight *= 0.7;
+		} else {
+			weight *= 0.8;
+		}
 	}
 
 	if (down >= 3 && toGo >= 5) {
-		if (concept === "INTERMEDIATE") weight *= 1.25;
-		else if (concept === "DEEP_SHOT") weight *= 1.3;
-		else if (concept === "SCREEN") weight *= 0.9;
-		else if (concept === "PLAY_ACTION") weight *= 0.65;
+		if (concept === "INTERMEDIATE") {
+			weight *= 1.25;
+		} else if (concept === "DEEP_SHOT") {
+			weight *= 1.3;
+		} else if (concept === "SCREEN") {
+			weight *= 0.9;
+		} else if (concept === "PLAY_ACTION") {
+			weight *= 0.65;
+		}
 	}
 
 	if (scrimmage >= 95) {
-		if (concept === "QUICK_GAME") weight *= 1.2;
-		else if (concept === "PLAY_ACTION") weight *= 1.5;
-		else if (concept === "DEEP_SHOT") weight *= 0.5;
-		else if (concept === "SCREEN") weight *= 0.8;
+		if (concept === "QUICK_GAME") {
+			weight *= 1.2;
+		} else if (concept === "PLAY_ACTION") {
+			weight *= 1.5;
+		} else if (concept === "DEEP_SHOT") {
+			weight *= 0.5;
+		} else if (concept === "SCREEN") {
+			weight *= 0.8;
+		}
 	}
 
 	return weight;
@@ -704,16 +808,9 @@ const chooseOffensivePlayConcept = (
 					scrimmage,
 				) *
 				getConceptRosterFactor(
-					getRunConceptRosterScore(
-						team,
-						candidate,
-					),
+					getRunConceptRosterScore(team, candidate),
 				) *
-				getDesignedRunUsageFactor(
-					team,
-					candidate,
-					qb,
-				),
+				getDesignedRunUsageFactor(team, candidate, qb),
 		);
 
 		return {
@@ -733,10 +830,7 @@ const chooseOffensivePlayConcept = (
 				scrimmage,
 			) *
 			getConceptRosterFactor(
-				getPassConceptRosterScore(
-					team,
-					candidate,
-				),
+				getPassConceptRosterScore(team, candidate),
 			),
 	);
 
@@ -825,19 +919,12 @@ const getRunConceptExecutionModifiers = (
 	offenseRunBlocking: number;
 	defenseRunStopping: number;
 } => {
-	const score = getRunConceptRosterScore(
-		team,
-		concept,
-	);
+	const score = getRunConceptRosterScore(team, concept);
 
 	const fitFactor =
 		score === undefined
 			? 1
-			: helpers.bound(
-					1 + (score - 50) / 500,
-					0.95,
-					1.05,
-				);
+			: helpers.bound(1 + (score - 50) / 500, 0.95, 1.05);
 
 	if (concept === "INSIDE_ZONE") {
 		return {
@@ -894,70 +981,34 @@ const getRunConceptExecutionModifiers = (
 	};
 };
 
-const RUN_CARRIER_ROLES: Record<
-	RunConcept,
-	FunctionalRole[]
-> = {
-	INSIDE_ZONE: [
-		"RB_FEATURE",
-		"RB_POWER",
-	],
-	OUTSIDE_ZONE: [
-		"RB_FEATURE",
-		"RB_RECEIVING",
-	],
-	POWER: [
-		"RB_POWER",
-		"RB_SHORT_YARDAGE",
-	],
-	COUNTER: [
-		"RB_FEATURE",
-		"RB_POWER",
-	],
-	DRAW: [
-		"RB_THIRD_DOWN",
-		"RB_RECEIVING",
-	],
+const RUN_CARRIER_ROLES: Record<RunConcept, FunctionalRole[]> = {
+	INSIDE_ZONE: ["RB_FEATURE", "RB_POWER"],
+	OUTSIDE_ZONE: ["RB_FEATURE", "RB_RECEIVING"],
+	POWER: ["RB_POWER", "RB_SHORT_YARDAGE"],
+	COUNTER: ["RB_FEATURE", "RB_POWER"],
+	DRAW: ["RB_THIRD_DOWN", "RB_RECEIVING"],
 	READ_OPTION: [
 		"QB_DUAL_THREAT",
 		"QB_CREATOR",
 		"RB_FEATURE",
 		"RB_RECEIVING",
 	],
-	QB_POWER: [
-		"QB_DUAL_THREAT",
-		"QB_CREATOR",
-	],
-	JET_SWEEP: [
-		"WR_Z",
-		"WR_SLOT",
-		"WR_DEEP_THREAT",
-	],
+	QB_POWER: ["QB_DUAL_THREAT", "QB_CREATOR"],
+	JET_SWEEP: ["WR_Z", "WR_SLOT", "WR_DEEP_THREAT"],
 };
 
 const getRunCarrierWeight = (
 	p: PlayerGameSim,
 	concept: RunConcept,
 ): number => {
-	let bestRoleScore:
-		| number
-		| undefined;
+	let bestRoleScore: number | undefined;
 
-	for (
-		const role of
-			RUN_CARRIER_ROLES[
-				concept
-			]
-	) {
-		const score =
-			p.roleOvrs?.[
-				role
-			];
+	for (const role of RUN_CARRIER_ROLES[concept]) {
+		const score = p.roleOvrs?.[role];
 
 		if (
 			score !== undefined &&
-			(bestRoleScore === undefined ||
-				score > bestRoleScore)
+			(bestRoleScore === undefined || score > bestRoleScore)
 		) {
 			bestRoleScore = score;
 		}
@@ -967,9 +1018,7 @@ const getRunCarrierWeight = (
 		bestRoleScore === undefined
 			? 1
 			: helpers.bound(
-					0.75 +
-						(bestRoleScore / 100) *
-							0.75,
+					0.75 + (bestRoleScore / 100) * 0.75,
 					0.75,
 					1.5,
 				);
@@ -985,27 +1034,16 @@ const getRunCarrierWeight = (
 		1,
 	);
 
-	return (
-		rushing ** 1.5 *
-		roleFactor *
-		energy
-	);
+	return rushing ** 1.5 * roleFactor * energy;
 };
 
 const getReadOptionKeepProbability = (
 	qb: PlayerGameSim,
 ): number => {
-	const mobility = getQbMobilityScore(
-		qb,
-	);
+	const mobility = getQbMobilityScore(qb);
 
 	return helpers.bound(
-		0.06 +
-			Math.max(
-				0,
-				mobility - 40,
-			) /
-				75,
+		0.06 + Math.max(0, mobility - 40) / 75,
 		0.05,
 		0.62,
 	);
@@ -1040,13 +1078,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.78,
 			extraRbBlockChance: 0.25,
 			wrBlockChance: 0.08,
-			olBaselines: [
-				1,
-				0.98,
-				0.96,
-				0.98,
-				1,
-			],
+			olBaselines: [1, 0.98, 0.96, 0.98, 1],
 			clockMin: 2,
 			clockMax: 4,
 		};
@@ -1063,13 +1095,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.65,
 			extraRbBlockChance: 0.2,
 			wrBlockChance: 0.28,
-			olBaselines: [
-				0.98,
-				1.01,
-				1.03,
-				1.01,
-				0.98,
-			],
+			olBaselines: [0.98, 1.01, 1.03, 1.01, 0.98],
 			clockMin: 2,
 			clockMax: 4,
 		};
@@ -1086,13 +1112,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.9,
 			extraRbBlockChance: 0.65,
 			wrBlockChance: 0.05,
-			olBaselines: [
-				1.01,
-				0.97,
-				0.98,
-				0.97,
-				1.01,
-			],
+			olBaselines: [1.01, 0.97, 0.98, 0.97, 1.01],
 			clockMin: 3,
 			clockMax: 5,
 		};
@@ -1109,13 +1129,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.8,
 			extraRbBlockChance: 0.4,
 			wrBlockChance: 0.15,
-			olBaselines: [
-				1.02,
-				0.97,
-				1,
-				0.97,
-				1.02,
-			],
+			olBaselines: [1.02, 0.97, 1, 0.97, 1.02],
 			clockMin: 3,
 			clockMax: 5,
 		};
@@ -1132,13 +1146,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.4,
 			extraRbBlockChance: 0.1,
 			wrBlockChance: 0.12,
-			olBaselines: [
-				1.02,
-				1,
-				1,
-				1,
-				1.02,
-			],
+			olBaselines: [1.02, 1, 1, 1, 1.02],
 			clockMin: 2,
 			clockMax: 4,
 		};
@@ -1155,13 +1163,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.65,
 			extraRbBlockChance: 0,
 			wrBlockChance: 0.22,
-			olBaselines: [
-				0.99,
-				1,
-				1,
-				1,
-				0.99,
-			],
+			olBaselines: [0.99, 1, 1, 1, 0.99],
 			clockMin: 2,
 			clockMax: 4,
 		};
@@ -1178,13 +1180,7 @@ const getRunConceptEffects = (
 			teBlockChance: 0.88,
 			extraRbBlockChance: 0.7,
 			wrBlockChance: 0.08,
-			olBaselines: [
-				1.02,
-				0.97,
-				0.97,
-				0.97,
-				1.02,
-			],
+			olBaselines: [1.02, 0.97, 0.97, 0.97, 1.02],
 			clockMin: 3,
 			clockMax: 5,
 		};
@@ -1200,13 +1196,7 @@ const getRunConceptEffects = (
 		teBlockChance: 0.62,
 		extraRbBlockChance: 0.12,
 		wrBlockChance: 0.72,
-		olBaselines: [
-			0.96,
-			1.02,
-			1.04,
-			1.02,
-			0.96,
-		],
+		olBaselines: [0.96, 1.02, 1.04, 1.02, 0.96],
 		clockMin: 2,
 		clockMax: 4,
 	};
@@ -1222,9 +1212,7 @@ type DefensivePassEffects = {
 };
 
 const getDefensivePassEffects = (
-	defenseConcept:
-		| DefensivePlayConcept
-		| undefined,
+	defenseConcept: DefensivePlayConcept | undefined,
 	passConcept: PassConcept,
 ): DefensivePassEffects => {
 	if (
@@ -1258,9 +1246,7 @@ const getDefensivePassEffects = (
 						? 0.95
 						: 1,
 			explosiveMultiplier:
-				passConcept === "DEEP_SHOT"
-					? 1.18
-					: 0.95,
+				passConcept === "DEEP_SHOT" ? 1.18 : 0.95,
 			scrambleMultiplier: 0.95,
 		};
 	}
@@ -1269,18 +1255,12 @@ const getDefensivePassEffects = (
 		return {
 			sackMultiplier: 1.05,
 			completionMultiplier:
-				passConcept === "DEEP_SHOT"
-					? 1.01
-					: 0.97,
+				passConcept === "DEEP_SHOT" ? 1.01 : 0.97,
 			interceptionMultiplier: 1.05,
 			yardageMultiplier:
-				passConcept === "DEEP_SHOT"
-					? 1.05
-					: 0.98,
+				passConcept === "DEEP_SHOT" ? 1.05 : 0.98,
 			explosiveMultiplier:
-				passConcept === "DEEP_SHOT"
-					? 1.1
-					: 0.98,
+				passConcept === "DEEP_SHOT" ? 1.1 : 0.98,
 			scrambleMultiplier: 0.9,
 		};
 	}
@@ -1335,9 +1315,7 @@ const getDefensivePassEffects = (
 							? 1.05
 							: 0.97,
 			explosiveMultiplier:
-				passConcept === "DEEP_SHOT"
-					? 0.78
-					: 0.96,
+				passConcept === "DEEP_SHOT" ? 0.78 : 0.96,
 			scrambleMultiplier: 1,
 		};
 	}
@@ -1449,9 +1427,7 @@ type DefensiveRunEffects = {
 };
 
 const getDefensiveRunEffects = (
-	defenseConcept:
-		| DefensivePlayConcept
-		| undefined,
+	defenseConcept: DefensivePlayConcept | undefined,
 	runConcept: RunConcept,
 ): DefensiveRunEffects => {
 	if (
@@ -1467,9 +1443,7 @@ const getDefensiveRunEffects = (
 	if (defenseConcept === "MAN_PRESS") {
 		return {
 			meanMultiplier:
-				runConcept === "JET_SWEEP"
-					? 0.94
-					: 0.97,
+				runConcept === "JET_SWEEP" ? 0.94 : 0.97,
 			explosiveMultiplier: 0.96,
 		};
 	}
@@ -1509,16 +1483,12 @@ const getDefensiveRunEffects = (
 			runConcept === "JET_SWEEP";
 
 		return {
-			meanMultiplier:
-				misdirection
-					? 1.07
-					: runConcept === "DRAW"
-						? 0.9
-						: 0.94,
-			explosiveMultiplier:
-				misdirection
-					? 1.18
-					: 0.85,
+			meanMultiplier: misdirection
+				? 1.07
+				: runConcept === "DRAW"
+					? 0.9
+					: 0.94,
+			explosiveMultiplier: misdirection ? 1.18 : 0.85,
 		};
 	}
 
@@ -1606,9 +1576,7 @@ const getDefensiveRunEffects = (
 };
 
 const getDefensiveScrambleYardsMultiplier = (
-	concept:
-		| DefensivePlayConcept
-		| undefined,
+	concept: DefensivePlayConcept | undefined,
 ): number => {
 	if (concept === "EDGE_CONTAIN") {
 		return 0.72;
@@ -1634,6 +1602,10 @@ const getDefensiveScrambleYardsMultiplier = (
 };
 
 class GameSimFootballRealism extends GameSimFootball {
+	currentPassProtectionMatchups:
+		| Map<PlayerGameSim, PlayerGameSim>
+		| undefined;
+
 	currentDefensivePlayConcept:
 		| DefensivePlayConcept
 		| undefined;
@@ -1664,6 +1636,9 @@ class GameSimFootballRealism extends GameSimFootball {
 			| OffensivePersonnel
 			| undefined;
 
+		this.currentPassProtectionMatchups =
+			undefined;
+
 		this.currentDefensivePlayConcept =
 			undefined;
 
@@ -1671,16 +1646,12 @@ class GameSimFootballRealism extends GameSimFootball {
 			undefined;
 
 		if (playType === "starters") {
-			formation =
-				applyBaseDefensiveFront(
-					formations.normal[0]!,
-					this.team[this.d],
-				);
-		} else if (
-			playType === "startersFake"
-		) {
-			formation =
-				formations.normal[0]!;
+			formation = applyBaseDefensiveFront(
+				formations.normal[0]!,
+				this.team[this.d],
+			);
+		} else if (playType === "startersFake") {
+			formation = formations.normal[0]!;
 		} else if (
 			playType === "run" ||
 			playType === "pass"
@@ -1694,39 +1665,29 @@ class GameSimFootballRealism extends GameSimFootball {
 					this.scrimmage,
 				);
 
-			normalPlayType =
-				playType;
-
+			normalPlayType = playType;
 			personnelForConcept =
 				offensiveFormation.offensivePersonnel;
 
-			formation =
-				getNormalFormation(
-					offensiveFormation,
-					this.team[this.d],
-				);
+			formation = getNormalFormation(
+				offensiveFormation,
+				this.team[this.d],
+			);
 		} else if (
 			playType === "extraPoint" ||
 			playType === "fieldGoal"
 		) {
-			formation =
-				choice(
-					formations.fieldGoal,
-				);
-		} else if (
-			playType === "punt"
-		) {
-			formation =
-				choice(
-					formations.punt,
-				);
-		} else if (
-			playType === "kickoff"
-		) {
-			formation =
-				choice(
-					formations.kickoff,
-				);
+			formation = choice(
+				formations.fieldGoal,
+			);
+		} else if (playType === "punt") {
+			formation = choice(
+				formations.punt,
+			);
+		} else if (playType === "kickoff") {
+			formation = choice(
+				formations.kickoff,
+			);
 		} else {
 			throw new Error(
 				`Unknown playType "${playType}"`,
@@ -1738,17 +1699,13 @@ class GameSimFootballRealism extends GameSimFootball {
 			"def",
 		] as const;
 
-		for (
-			const i of
-				[0, 1] as const
-		) {
+		for (const i of [0, 1] as const) {
 			const t =
 				i === 0
 					? this.o
 					: this.d;
 
-			const side =
-				sides[i];
+			const side = sides[i];
 
 			const pidsUsed =
 				new Set<number>();
@@ -1757,10 +1714,9 @@ class GameSimFootballRealism extends GameSimFootball {
 				{};
 
 			for (
-				const pos of
-					helpers.keys(
-						formation[side],
-					)
+				const pos of helpers.keys(
+					formation[side],
+				)
 			) {
 				const numPlayers =
 					formation[side][pos]!;
@@ -1779,8 +1735,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					);
 
 				const players:
-					PlayerGameSim[] =
-						[];
+					PlayerGameSim[] = [];
 
 				if (
 					pos === "OL" &&
@@ -1792,14 +1747,15 @@ class GameSimFootballRealism extends GameSimFootball {
 							boolean,
 					) => {
 						for (
-							let depthIndex =
-								5;
+							let depthIndex = 5;
 							depthIndex <
 							depth.length;
 							depthIndex++
 						) {
 							const p =
-								depth[depthIndex]!;
+								depth[
+									depthIndex
+								]!;
 
 							if (
 								pidsUsed.has(
@@ -1821,13 +1777,14 @@ class GameSimFootballRealism extends GameSimFootball {
 					};
 
 					for (
-						let slotIndex =
-							0;
+						let slotIndex = 0;
 						slotIndex < 5;
 						slotIndex++
 					) {
 						const starter =
-							depth[slotIndex]!;
+							depth[
+								slotIndex
+							]!;
 
 						let p:
 							| PlayerGameSim
@@ -1839,8 +1796,7 @@ class GameSimFootballRealism extends GameSimFootball {
 								starter.id,
 							)
 						) {
-							p =
-								starter;
+							p = starter;
 						} else {
 							p =
 								getOlBackup(
@@ -1854,8 +1810,7 @@ class GameSimFootballRealism extends GameSimFootball {
 								starter.id,
 							)
 						) {
-							p =
-								starter;
+							p = starter;
 						}
 
 						if (!p) {
@@ -1869,7 +1824,6 @@ class GameSimFootballRealism extends GameSimFootball {
 							players.push(
 								p,
 							);
-
 							pidsUsed.add(
 								p.id,
 							);
@@ -1881,8 +1835,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					)
 				) {
 					for (
-						let depthIndex =
-							0;
+						let depthIndex = 0;
 						depthIndex <
 						depth.length;
 						depthIndex++
@@ -1895,7 +1848,9 @@ class GameSimFootballRealism extends GameSimFootball {
 						}
 
 						const p =
-							depth[depthIndex]!;
+							depth[
+								depthIndex
+							]!;
 
 						if (
 							p.injured ||
@@ -1910,14 +1865,14 @@ class GameSimFootballRealism extends GameSimFootball {
 							Math.random() <
 							FATIGUE_MODIFIER *
 								footballFatigue(
-									p.stat.energy,
+									p.stat
+										.energy,
 									p.injured,
 								)
 						) {
 							players.push(
 								p,
 							);
-
 							pidsUsed.add(
 								p.id,
 							);
@@ -1925,8 +1880,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					}
 				} else {
 					for (
-						let depthIndex =
-							0;
+						let depthIndex = 0;
 						depthIndex <
 						depth.length;
 						depthIndex++
@@ -1939,7 +1893,9 @@ class GameSimFootballRealism extends GameSimFootball {
 						}
 
 						const p =
-							depth[depthIndex]!;
+							depth[
+								depthIndex
+							]!;
 
 						if (
 							!p.injured &&
@@ -1950,7 +1906,6 @@ class GameSimFootballRealism extends GameSimFootball {
 							players.push(
 								p,
 							);
-
 							pidsUsed.add(
 								p.id,
 							);
@@ -1966,14 +1921,15 @@ class GameSimFootballRealism extends GameSimFootball {
 					numPlayers
 				) {
 					for (
-						let depthIndex =
-							0;
+						let depthIndex = 0;
 						depthIndex <
 						depth.length;
 						depthIndex++
 					) {
 						const p =
-							depth[depthIndex]!;
+							depth[
+								depthIndex
+							]!;
 
 						if (
 							players.length >=
@@ -1991,7 +1947,6 @@ class GameSimFootballRealism extends GameSimFootball {
 							players.push(
 								p,
 							);
-
 							pidsUsed.add(
 								p.id,
 							);
@@ -2003,14 +1958,15 @@ class GameSimFootballRealism extends GameSimFootball {
 						numPlayers
 					) {
 						for (
-							let depthIndex =
-								0;
+							let depthIndex = 0;
 							depthIndex <
 							depth.length;
 							depthIndex++
 						) {
 							const p =
-								depth[depthIndex]!;
+								depth[
+									depthIndex
+								]!;
 
 							if (
 								players.length >=
@@ -2027,7 +1983,6 @@ class GameSimFootballRealism extends GameSimFootball {
 								players.push(
 									p,
 								);
-
 								pidsUsed.add(
 									p.id,
 								);
@@ -2038,10 +1993,14 @@ class GameSimFootballRealism extends GameSimFootball {
 
 				for (
 					const p of
-						this.playersOnField[t][pos]
+						this
+							.playersOnField[
+							t
+						][pos]
 				) {
 					if (
-						playType === "starters"
+						playType ===
+						"starters"
 					) {
 						this.recordStat(
 							t,
@@ -2062,12 +2021,16 @@ class GameSimFootballRealism extends GameSimFootball {
 		this.updateTeamCompositeRatings();
 
 		if (
-			normalPlayType !== undefined &&
-			personnelForConcept !== undefined
+			normalPlayType !==
+				undefined &&
+			personnelForConcept !==
+				undefined
 		) {
 			this.currentDefensivePlayConcept =
 				chooseDefensivePlayConcept(
-					this.team[this.d],
+					this.team[
+						this.d
+					],
 					personnelForConcept,
 					this.down,
 					this.toGo,
@@ -2076,7 +2039,9 @@ class GameSimFootballRealism extends GameSimFootball {
 
 			this.currentOffensivePlayConcept =
 				chooseOffensivePlayConcept(
-					this.team[this.o],
+					this.team[
+						this.o
+					],
 					normalPlayType,
 					personnelForConcept,
 					this.down,
@@ -2089,26 +2054,33 @@ class GameSimFootballRealism extends GameSimFootball {
 		}
 
 		if (
-			this.currentOffensivePlayConcept
+			this
+				.currentOffensivePlayConcept
 				?.type === "run"
 		) {
 			const modifiers =
 				getRunConceptExecutionModifiers(
-					this.team[this.o],
+					this.team[
+						this.o
+					],
 					this
 						.currentOffensivePlayConcept
 						.concept,
 				);
 
-			this.team[this.o]
-				.compositeRating
+			this.team[
+				this.o
+			].compositeRating
 				.runBlocking *=
-				modifiers.offenseRunBlocking;
+				modifiers
+					.offenseRunBlocking;
 
-			this.team[this.d]
-				.compositeRating
+			this.team[
+				this.d
+			].compositeRating
 				.runStopping *=
-				modifiers.defenseRunStopping;
+				modifiers
+					.defenseRunStopping;
 		}
 	}
 
@@ -2187,16 +2159,20 @@ class GameSimFootballRealism extends GameSimFootball {
 			);
 
 		const rbs =
-			this.playersOnField[o]
-				.RB ?? [];
+			this.playersOnField[
+				o
+			].RB ?? [];
 
 		const getPreferredRb =
 			() =>
 				rbs.length > 0 &&
-				runConcept !== undefined
+				runConcept !==
+					undefined
 					? choice(
 							rbs,
-							(candidate) =>
+							(
+								candidate,
+							) =>
 								getRunCarrierWeight(
 									candidate,
 									runConcept!,
@@ -2219,14 +2195,17 @@ class GameSimFootballRealism extends GameSimFootball {
 			"JET_SWEEP"
 		) {
 			const wrs =
-				this.playersOnField[o]
-					.WR ?? [];
+				this.playersOnField[
+					o
+				].WR ?? [];
 
 			p =
 				wrs.length > 0
 					? choice(
 							wrs,
-							(candidate) =>
+							(
+								candidate,
+							) =>
 								getRunCarrierWeight(
 									candidate,
 									"JET_SWEEP",
@@ -2284,8 +2263,9 @@ class GameSimFootballRealism extends GameSimFootball {
 					number,
 			) => {
 				const teamRunStopping =
-					this.team[d]
-						.compositeRating
+					this.team[
+						d
+					].compositeRating
 						.runStopping;
 
 				const opponentStrength =
@@ -2329,8 +2309,9 @@ class GameSimFootballRealism extends GameSimFootball {
 			};
 
 			const ol =
-				this.playersOnField[o]
-					.OL;
+				this.playersOnField[
+					o
+				].OL;
 
 			if (ol) {
 				for (
@@ -2367,13 +2348,13 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 
 			const te =
-				this.playersOnField[o]
-					.TE;
+				this.playersOnField[
+					o
+				].TE;
 
 			if (te) {
 				for (
-					const blocker of
-						te
+					const blocker of te
 				) {
 					if (
 						blocker !== p &&
@@ -2391,13 +2372,13 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 
 			const rb =
-				this.playersOnField[o]
-					.RB;
+				this.playersOnField[
+					o
+				].RB;
 
 			if (rb) {
 				for (
-					const blocker of
-						rb
+					const blocker of rb
 				) {
 					if (
 						blocker !== p &&
@@ -2415,13 +2396,13 @@ class GameSimFootballRealism extends GameSimFootball {
 			}
 
 			const wr =
-				this.playersOnField[o]
-					.WR;
+				this.playersOnField[
+					o
+				].WR;
 
 			if (wr) {
 				for (
-					const blocker of
-						wr
+					const blocker of wr
 				) {
 					if (
 						blocker !== p &&
@@ -2451,11 +2432,8 @@ class GameSimFootballRealism extends GameSimFootball {
 					o
 				].OL ?? [];
 
-			let weightedWins =
-				0;
-
-			let totalWeight =
-				0;
+			let weightedWins = 0;
+			let totalWeight = 0;
 
 			for (
 				const [
@@ -2482,8 +2460,7 @@ class GameSimFootballRealism extends GameSimFootball {
 							: 1
 						: 0.35;
 
-				totalWeight +=
-					weight;
+				totalWeight += weight;
 
 				if (result.won) {
 					weightedWins +=
@@ -2491,9 +2468,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				}
 			}
 
-			if (
-				totalWeight > 0
-			) {
+			if (totalWeight > 0) {
 				const winRate =
 					weightedWins /
 					totalWeight;
@@ -2546,11 +2521,14 @@ class GameSimFootballRealism extends GameSimFootball {
 						(p
 							.compositeRating
 							.rushing +
-							this.team[o]
+							this.team[
+								o
+							]
 								.compositeRating
 								.runBlocking))) /
-					this.team[d]
-						.compositeRating
+					this.team[
+						d
+					].compositeRating
 						.runStopping,
 				-5,
 				15,
@@ -2564,8 +2542,10 @@ class GameSimFootballRealism extends GameSimFootball {
 								.meanMultiplier *
 							defensiveRunEffects
 								.meanMultiplier,
-						runEffects.minYds,
-						runEffects.maxYds,
+						runEffects
+							.minYds,
+						runEffects
+							.maxYds,
 					)
 				: baseMeanYds;
 
@@ -2575,13 +2555,11 @@ class GameSimFootballRealism extends GameSimFootball {
 			6;
 
 		const minYds =
-			runEffects
-				?.minYds ??
+			runEffects?.minYds ??
 			-5;
 
 		const maxYds =
-			runEffects
-				?.maxYds ??
+			runEffects?.maxYds ??
 			15;
 
 		let ydsRaw =
@@ -2681,17 +2659,13 @@ class GameSimFootballRealism extends GameSimFootball {
 						p,
 					},
 				);
-		} else if (
-			safety
-		) {
+		} else if (safety) {
 			this.doSafety();
 		} else {
-			this.doTackle(
-				{
-					ydsFromScrimmage:
-						yds,
-				},
-			);
+			this.doTackle({
+				ydsFromScrimmage:
+					yds,
+			});
 		}
 
 		this.playByPlay.logEvent(
@@ -2744,6 +2718,255 @@ class GameSimFootballRealism extends GameSimFootball {
 		}
 
 		return dt;
+	}
+
+	doSack(
+		qb: PlayerGameSim,
+		pbw: Map<
+			PlayerGameSim,
+			{
+				type:
+					| "OL"
+					| "Other";
+				won: boolean;
+			}
+		>,
+	) {
+		const {
+			d,
+			o,
+		} =
+			this.currentPlay
+				.state.initial;
+
+		const ol =
+			this.playersOnField[
+				o
+			].OL ?? [];
+
+		const failedOlBlocks =
+			Array.from(
+				pbw.entries(),
+			).filter(
+				([
+					,
+					{
+						type,
+						won,
+					},
+				]) =>
+					type ===
+						"OL" &&
+					!won,
+			);
+
+		const failedMatchups =
+			failedOlBlocks.flatMap(
+				([
+					blocker,
+				]) => {
+					const rusher =
+						this
+							.currentPassProtectionMatchups
+							?.get(
+								blocker,
+							);
+
+					if (!rusher) {
+						return [];
+					}
+
+					const slotIndex =
+						ol.indexOf(
+							blocker,
+						);
+
+					const strength =
+						getPassRushMatchupStrength(
+							rusher,
+							slotIndex >=
+								0
+								? slotIndex
+								: 2,
+						);
+
+					const edgeFactor =
+						slotIndex === 0 ||
+						slotIndex === 4
+							? 1.15
+							: 1;
+
+					return [
+						{
+							blocker,
+							rusher,
+							weight:
+								Math.max(
+									0.05,
+									strength,
+								) *
+								edgeFactor,
+						},
+					];
+				},
+			);
+
+		const directMatchupChance =
+			this
+				.currentDefensivePlayConcept ===
+			"BLITZ"
+				? 0.75
+				: this
+							.currentDefensivePlayConcept ===
+					  "RUN_BLITZ"
+					? 0.82
+					: 0.92;
+
+		let p:
+			PlayerGameSim;
+
+		let sackAllowedBlocker:
+			| PlayerGameSim
+			| undefined;
+
+		if (
+			failedMatchups.length >
+				0 &&
+			Math.random() <
+				directMatchupChance
+		) {
+			const matchup =
+				choice(
+					failedMatchups,
+					(candidate) =>
+						candidate
+							.weight **
+						2,
+				);
+
+			p = matchup.rusher;
+			sackAllowedBlocker =
+				matchup.blocker;
+		} else {
+			p =
+				this.pickPlayer(
+					d,
+					"passRushing",
+					undefined,
+					5,
+				);
+
+			const dl =
+				this.playersOnField[
+					d
+				].DL;
+
+			const lb =
+				this.playersOnField[
+					d
+				].LB;
+
+			if (
+				(dl &&
+					dl.includes(
+						p,
+					)) ||
+				(lb &&
+					lb.includes(
+						p,
+					))
+			) {
+				const lostBlockers =
+					failedOlBlocks.map(
+						([
+							blocker,
+						]) =>
+							blocker,
+					);
+
+				if (
+					lostBlockers.length >
+					0
+				) {
+					sackAllowedBlocker =
+						choice(
+							lostBlockers,
+						);
+				}
+			}
+		}
+
+		const ydsRaw =
+			randInt(
+				-1,
+				-12,
+			);
+
+		const yds =
+			this.currentPlay
+				.boundedYds(
+					ydsRaw,
+				);
+
+		const {
+			safety,
+		} =
+			this.currentPlay
+				.addEvent(
+					{
+						type:
+							"sk",
+						qb,
+						p,
+						ol:
+							sackAllowedBlocker,
+						yds,
+					},
+				);
+
+		if (safety) {
+			this.doSafety(
+				p,
+			);
+		}
+
+		this.playByPlay
+			.logEvent(
+				{
+					type:
+						"sack",
+					clock:
+						this.clock,
+					names: [
+						qb.name,
+						p.name,
+					],
+					totalDefSk:
+						this
+							.allStarGame
+							? undefined
+							: p
+									.seasonStats[
+									"defSk"
+								] +
+								p.stat[
+									"defSk"
+								],
+					safety,
+					t:
+						this
+							.currentPlay
+							.state
+							.initial
+							.o,
+					yds,
+				},
+			);
+
+		return randInt(
+			3,
+			8,
+		);
 	}
 
 	probSack(
@@ -2998,6 +3221,9 @@ class GameSimFootballRealism extends GameSimFootball {
 				],
 			);
 
+		this.currentPassProtectionMatchups =
+			passProtectionMatchups;
+
 		const addBlockAttempt = (
 			p: PlayerGameSim,
 			type:
@@ -3009,13 +3235,14 @@ class GameSimFootballRealism extends GameSimFootball {
 				number,
 		) => {
 			const teamPassRushing =
-				this.team[d]
-					.compositeRating
+				this.team[
+					d
+				].compositeRating
 					.passRushing;
 
 			const opponentStrength =
 				matchupStrength ===
-				undefined
+					undefined
 					? teamPassRushing
 					: 0.35 *
 							teamPassRushing +
@@ -3104,9 +3331,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			].TE;
 
 		if (te) {
-			for (
-				const p of te
-			) {
+			for (const p of te) {
 				if (
 					Math.random() <
 					conceptEffects
@@ -3127,9 +3352,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			].RB;
 
 		if (rb) {
-			for (
-				const p of rb
-			) {
+			for (const p of rb) {
 				if (
 					Math.random() <
 					conceptEffects
@@ -3150,26 +3373,19 @@ class GameSimFootballRealism extends GameSimFootball {
 				"QB",
 			);
 
-		this.currentPlay.addEvent(
-			{
-				type:
-					"dropback",
-				pbw,
-			},
-		);
+		this.currentPlay.addEvent({
+			type: "dropback",
+			pbw,
+		});
 
-		this.playByPlay.logEvent(
-			{
-				type:
-					"dropback",
-				clock:
-					this.clock,
-				names: [
-					qb.name,
-				],
-				t: o,
-			},
-		);
+		this.playByPlay.logEvent({
+			type: "dropback",
+			clock: this.clock,
+			names: [
+				qb.name,
+			],
+			t: o,
+		});
 
 		let dt =
 			randInt(
@@ -3260,9 +3476,11 @@ class GameSimFootballRealism extends GameSimFootball {
 		};
 
 		const target =
-			passConcept === "SCREEN" &&
-			(this.playersOnField[o]
-				.RB?.length ??
+			passConcept ===
+				"SCREEN" &&
+			(this.playersOnField[
+				o
+			].RB?.length ??
 				0) >
 				0 &&
 			Math.random() <
@@ -3272,13 +3490,15 @@ class GameSimFootballRealism extends GameSimFootball {
 							"RB",
 						],
 					)
-				: passConcept === "SCREEN"
+				: passConcept ===
+					  "SCREEN"
 					? pickTargetFromPositions(
 							[
 								"WR",
 							],
 						)
-					: passConcept === "DEEP_SHOT"
+					: passConcept ===
+						  "DEEP_SHOT"
 						? pickTargetFromPositions(
 								[
 									"WR",
@@ -3294,15 +3514,17 @@ class GameSimFootballRealism extends GameSimFootball {
 							);
 
 		const isRbTarget =
-			this.playersOnField[o]
-				.RB?.includes(
-					target,
-				) ??
+			this.playersOnField[
+				o
+			].RB?.includes(
+				target,
+			) ??
 			false;
 
 		const rbFactor =
 			isRbTarget &&
-			passConcept !== "SCREEN" &&
+			passConcept !==
+				"SCREEN" &&
 			Math.random() <
 				0.75
 				? target
@@ -3311,11 +3533,13 @@ class GameSimFootballRealism extends GameSimFootball {
 				: 1;
 
 		const protectionRatio =
-			this.team[o]
-				.compositeRating
+			this.team[
+				o
+			].compositeRating
 				.passBlocking /
-			this.team[d]
-				.compositeRating
+			this.team[
+				d
+			].compositeRating
 				.passRushing;
 
 		let meanYds:
@@ -3337,8 +3561,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					45,
 				);
 
-			spreadYds =
-				4.5;
+			spreadYds = 4.5;
 		} else if (
 			passConcept ===
 			"DEEP_SHOT"
@@ -3352,8 +3575,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					100,
 				);
 
-			spreadYds =
-				10;
+			spreadYds = 10;
 		} else if (
 			passConcept ===
 			"PLAY_ACTION"
@@ -3367,8 +3589,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					80,
 				);
 
-			spreadYds =
-				8;
+			spreadYds = 8;
 		} else if (
 			passConcept ===
 			"SCREEN"
@@ -3376,7 +3597,9 @@ class GameSimFootballRealism extends GameSimFootball {
 			const tackling =
 				Math.max(
 					0.05,
-					this.team[d]
+					this.team[
+						d
+					]
 						.compositeRating
 						.tackling,
 				);
@@ -3384,7 +3607,9 @@ class GameSimFootballRealism extends GameSimFootball {
 			meanYds =
 				helpers.bound(
 					6.5 *
-						(this.team[o]
+						(this.team[
+							o
+						]
 							.compositeRating
 							.runBlocking /
 							tackling),
@@ -3392,8 +3617,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					45,
 				);
 
-			spreadYds =
-				8.5;
+			spreadYds = 8.5;
 		} else {
 			meanYds =
 				helpers.bound(
@@ -3404,8 +3628,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					65,
 				);
 
-			spreadYds =
-				7;
+			spreadYds = 7;
 		}
 
 		meanYds =
@@ -3623,14 +3846,11 @@ class GameSimFootballRealism extends GameSimFootball {
 			},
 		);
 
-		this.currentPlay.addEvent(
-			{
-				type:
-					"pss",
-				qb,
-				target,
-			},
-		);
+		this.currentPlay.addEvent({
+			type: "pss",
+			qb,
+			target,
+		});
 
 		if (interception) {
 			dt +=
@@ -3688,16 +3908,13 @@ class GameSimFootballRealism extends GameSimFootball {
 							target,
 						)
 				) {
-					this.playByPlay
-						.logEvent(
-							{
-								totalPssTD:
-									undefined,
-								totalRecTD:
-									undefined,
-								...completeEvent,
-							},
-						);
+					this.playByPlay.logEvent({
+						totalPssTD:
+							undefined,
+						totalRecTD:
+							undefined,
+						...completeEvent,
+					});
 
 					return (
 						dt +
@@ -3709,90 +3926,75 @@ class GameSimFootballRealism extends GameSimFootball {
 				}
 
 				if (td) {
-					this.currentPlay
-						.addEvent(
-							{
-								type:
-									"pssTD",
-								qb,
-								target,
-							},
-						);
+					this.currentPlay.addEvent({
+						type: "pssTD",
+						qb,
+						target,
+					});
 				}
 
 				if (safety) {
 					this.doSafety();
 				}
 
-				this.playByPlay
-					.logEvent(
-						{
-							totalPssTD:
-								this
-									.allStarGame
-									? undefined
-									: qb
-											.seasonStats[
-											"pssTD"
-										] +
-										qb.stat[
-											"pssTD"
-										],
-							totalRecTD:
-								this
-									.allStarGame
-									? undefined
-									: target
-											.seasonStats[
-											"recTD"
-										] +
-										target.stat[
-											"recTD"
-										],
-							...completeEvent,
-						},
-					);
+				this.playByPlay.logEvent({
+					totalPssTD:
+						this
+							.allStarGame
+							? undefined
+							: qb
+									.seasonStats[
+									"pssTD"
+								] +
+								qb.stat[
+									"pssTD"
+								],
+					totalRecTD:
+						this
+							.allStarGame
+							? undefined
+							: target
+									.seasonStats[
+									"recTD"
+								] +
+								target.stat[
+									"recTD"
+								],
+					...completeEvent,
+				});
 
 				if (
 					!td &&
 					!safety
 				) {
-					this.doTackle(
-						{
-							ydsFromScrimmage:
-								yds,
-						},
-					);
+					this.doTackle({
+						ydsFromScrimmage:
+							yds,
+					});
 				}
 			} else {
-				this.currentPlay
-					.addEvent(
-						{
-							type:
-								"pssInc",
-							defender:
-								Math.random() <
-								0.28
-									? defender
-									: undefined,
-						},
-					);
+				this.currentPlay.addEvent({
+					type:
+						"pssInc",
+					defender:
+						Math.random() <
+						0.28
+							? defender
+							: undefined,
+				});
 
-				this.playByPlay
-					.logEvent(
-						{
-							type:
-								"passIncomplete",
-							clock:
-								this.clock,
-							names: [
-								qb.name,
-								target.name,
-							],
-							t: o,
-							yds,
-						},
-					);
+				this.playByPlay.logEvent({
+					type:
+						"passIncomplete",
+					clock:
+						this.clock,
+					names: [
+						qb.name,
+						target.name,
+					],
+					t: o,
+					yds,
+				});
 			}
 		}
 
