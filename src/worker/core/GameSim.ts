@@ -2455,6 +2455,12 @@ class GameSimFootballRealism extends GameSimFootball {
 					number
 				>();
 
+			const runBlockingComboHelperPenalties =
+				new Map<
+					PlayerGameSim,
+					number
+				>();
+
 			for (
 				const [
 					target,
@@ -2468,11 +2474,23 @@ class GameSimFootballRealism extends GameSimFootball {
 					const helper of
 						helpersForTarget
 				) {
-					bonus +=
+					const helpFactor =
 						getRunBlockingComboHelpFactor(
 							helper,
 							runConcept,
 						);
+
+					bonus +=
+						helpFactor;
+
+					runBlockingComboHelperPenalties.set(
+						helper,
+						Math.min(
+							0.08,
+							helpFactor *
+								0.55,
+						),
+					);
 				}
 
 				runBlockingComboBonuses.set(
@@ -2526,6 +2544,13 @@ class GameSimFootballRealism extends GameSimFootball {
 							) ?? 0
 						: 0;
 
+				const comboHelperPenalty =
+					type === "OL"
+						? runBlockingComboHelperPenalties.get(
+								blocker,
+							) ?? 0
+						: 0;
+
 				const probWin =
 					helpers.bound(
 						(ratio -
@@ -2533,7 +2558,8 @@ class GameSimFootballRealism extends GameSimFootball {
 							(0.65 /
 								0.25) +
 							0.3 +
-							comboBonus,
+							comboBonus -
+							comboHelperPenalty,
 						0,
 						0.98,
 					);
