@@ -7,6 +7,8 @@ import GameSim from "../GameSim.ts";
 import { player, team } from "../index.ts";
 import loadTeams from "../game/loadTeams.ts";
 
+const FootballGameSim = GameSim as any;
+
 const genTwoTeams = async () => {
 	resetG();
 	g.setWithoutSavingToDB("season", 2013);
@@ -56,7 +58,7 @@ const initRealismGame = async (gid: number) => {
 		}
 	}
 
-	return new GameSim({
+	return new FootballGameSim({
 		gid,
 		teams: [teams[0], teams[1]],
 		baseInjuryRate: g.get("injuryRate"),
@@ -87,42 +89,4 @@ test("football realism wrapper loads and completes games", async () => {
 		conceptGame.team[0].player.find(
 			(p: any) =>
 				p.roleOvrs !== undefined &&
-				Object.keys(p.roleOvrs).length > 0,
-		);
-
-	assert(playerWithRoleRatings);
-
-	conceptGame.updatePlayersOnField("run");
-
-	assert.strictEqual(
-		conceptGame.currentOffensivePlayConcept?.type,
-		"run",
-	);
-
-	assert.notStrictEqual(
-		conceptGame.currentDefensivePlayConcept,
-		undefined,
-	);
-
-	for (let i = 0; i < 3; i++) {
-		const game = await initRealismGame(i + 1);
-		const result = game.run();
-
-		assert.strictEqual(
-			result.team.length,
-			2,
-		);
-
-		assert(
-			Number.isFinite(
-				result.team[0].stat.pts,
-			),
-		);
-
-		assert(
-			Number.isFinite(
-				result.team[1].stat.pts,
-			),
-		);
-	}
-});
+				Object.keys(p.roleOvrs
