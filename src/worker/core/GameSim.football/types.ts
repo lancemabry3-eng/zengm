@@ -32,18 +32,28 @@ export type PenaltyPlayType =
 /*
  * Core offensive play concepts.
  *
- * These are intentionally broader than individual named plays.
+ * These are broader than individual named plays.
  * The simulation can use them to alter personnel preference,
- * blocking behavior, target depth, pressure, rushing lanes,
- * and play outcomes without having to simulate every route
- * and assignment individually.
+ * blocking behavior, ball-carrier selection, target depth,
+ * pressure, rushing lanes, and play outcomes without having
+ * to simulate every assignment individually.
+ *
+ * READ_OPTION gives mobile quarterbacks a designed rushing
+ * pathway while retaining an RB threat.
+ *
+ * QB_POWER is a true designed quarterback run.
+ *
+ * JET_SWEEP intentionally puts a WR into the rushing game.
  */
 export type RunConcept =
 	| "INSIDE_ZONE"
 	| "OUTSIDE_ZONE"
 	| "POWER"
 	| "COUNTER"
-	| "DRAW";
+	| "DRAW"
+	| "READ_OPTION"
+	| "QB_POWER"
+	| "JET_SWEEP";
 
 export type PassConcept =
 	| "QUICK_GAME"
