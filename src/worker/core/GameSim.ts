@@ -2068,7 +2068,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		| OffensivePlayConcept
 		| undefined;
 
-	updatePlayersOnField(
+	override updatePlayersOnField(
 		playType:
 			| "starters"
 			| "startersFake"
@@ -2419,7 +2419,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					) {
 						for (
 							let depthIndex = 0;
-							depthIndex <
+							dethIndex <
 							depth.length;
 							depthIndex++
 						) {
@@ -2544,7 +2544,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		}
 	}
 
-	doRun(
+	override doRun(
 		qbScramble:
 			boolean = false,
 	) {
@@ -2717,7 +2717,9 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			!qbScramble &&
-			runEffects
+			runEffects &&
+			runConcept !==
+				undefined
 		) {
 			rbw =
 				new Map();
@@ -3606,7 +3608,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		});
 	}
 
-	doSack(
+	override doSack(
 		qb: PlayerGameSim,
 		pbw: Map<
 			PlayerGameSim,
@@ -3894,7 +3896,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		);
 	}
 
-	probSack(
+	override probSack(
 		qb: PlayerGameSim,
 		pbw?: Map<
 			PlayerGameSim,
@@ -3979,7 +3981,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		);
 	}
 
-	probComplete(
+	override probComplete(
 		qb: PlayerGameSim,
 		target: PlayerGameSim,
 		defender: PlayerGameSim,
@@ -4037,7 +4039,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		);
 	}
 
-	probInt(
+	override probInt(
 		qb: PlayerGameSim,
 		defender: PlayerGameSim,
 	) {
@@ -4093,7 +4095,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		);
 	}
 
-	probScramble(
+	override probScramble(
 		qb?: PlayerGameSim,
 	) {
 		const base =
@@ -4159,7 +4161,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		);
 	}
 
-	doPass() {
+	override doPass() {
 		const o = this.o;
 		const d = this.d;
 
@@ -4783,11 +4785,6 @@ class GameSimFootballRealism extends GameSimFootball {
 					positions,
 				);
 
-			/*
-			 * If every preferred receiver stayed in protection,
-			 * allow one to release late as an outlet rather than
-			 * feeding choice() an empty array.
-			 */
 			if (
 				candidates.length ===
 					0
@@ -4799,11 +4796,6 @@ class GameSimFootballRealism extends GameSimFootball {
 					);
 			}
 
-			/*
-			 * Catastrophic injuries or unusual old-save rosters can
-			 * leave the concept's preferred position group empty.
-			 * Fall back to any skill-position player on the field.
-			 */
 			if (
 				candidates.length ===
 					0
