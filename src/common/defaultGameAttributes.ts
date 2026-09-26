@@ -696,7 +696,7 @@ export const defaultGameAttributes: GameAttributesLeagueWithHistory = {
 	passYdsFactor: 1.1,
 	completionFactor: 1.4,
 	scrambleFactor: 1,
-	sackFactor: 1.42,
+	sackFactor: 1.3,
 	fumbleFactor: 7,
 	intFactor: 0.32,
 	fgAccuracyFactor: 1,
