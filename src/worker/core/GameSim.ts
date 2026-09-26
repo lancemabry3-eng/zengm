@@ -10,6 +10,8 @@ import {
 	getPassProtectionMatchups,
 	getPassRushMatchupStrength,
 	getRunBlockingMatchups,
+	getRunBlockSlotWeight,
+	getRunExtraBlockWeight,
 	getRunStopMatchupStrength,
 } from "./GameSim.football/getCompositeFactor.ts";
 import {
@@ -2425,12 +2427,29 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			!qbScramble &&
-			rbw
+			rbw &&
+			runConcept !==
+				undefined
 		) {
 			const ol =
 				this.playersOnField[
 					o
 				].OL ?? [];
+
+			const te =
+				this.playersOnField[
+					o
+				].TE ?? [];
+
+			const rb =
+				this.playersOnField[
+					o
+				].RB ?? [];
+
+			const wr =
+				this.playersOnField[
+					o
+				].WR ?? [];
 
 			let weightedWins = 0;
 			let totalWeight = 0;
@@ -2441,30 +2460,61 @@ class GameSimFootballRealism extends GameSimFootball {
 					result,
 				] of rbw
 			) {
-				const slotIndex =
-					result.type ===
-					"OL"
-						? ol.indexOf(
-								blocker,
-							)
-						: -1;
+				let weight:
+					number;
 
-				const weight =
+				if (
 					result.type ===
 					"OL"
-						? slotIndex ===
-								0 ||
-							slotIndex ===
-								4
-							? 1.1
-							: 1
-						: 0.35;
+				) {
+					const slotIndex =
+						ol.indexOf(
+							blocker,
+						);
+
+					weight =
+						getRunBlockSlotWeight(
+							runConcept,
+							slotIndex,
+						);
+				} else if (
+					te.includes(
+						blocker,
+					)
+				) {
+					weight =
+						getRunExtraBlockWeight(
+							runConcept,
+							"TE",
+						);
+				} else if (
+					rb.includes(
+						blocker,
+					)
+				) {
+					weight =
+						getRunExtraBlockWeight(
+							runConcept,
+							"RB",
+						);
+				} else if (
+					wr.includes(
+						blocker,
+					)
+				) {
+					weight =
+						getRunExtraBlockWeight(
+							runConcept,
+							"WR",
+						);
+				} else {
+					weight = 0.25;
+				}
 
 				totalWeight += weight;
 
 				if (result.won) {
-					weightedWins +=
-						weight;
+					weightedWins += weight;
 				}
 			}
 
