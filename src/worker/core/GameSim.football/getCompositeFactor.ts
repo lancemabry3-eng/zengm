@@ -1709,7 +1709,7 @@ const buildPassRushMatchups = (
 			const nextRemaining =
 				remainingRushers.filter(
 					(
-						,
+						_,
 						index,
 					) =>
 						index !==
