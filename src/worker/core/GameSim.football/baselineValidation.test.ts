@@ -1,16 +1,53 @@
-import { assert, beforeAll, test } from "vitest";
+import { assert, test } from "vitest";
 import { DEFAULT_LEVEL } from "../../../common/budgetLevels.ts";
 import { range } from "../../../common/utils.ts";
 import { resetCache, resetG } from "../../../test/helpers.ts";
 import { g, helpers } from "../../util/index.ts";
+import RealismGameSim from "../GameSim.ts";
 import { player, team } from "../index.ts";
 import loadTeams from "../game/loadTeams.ts";
-import GameSim from "./index.ts";
+import BaseGameSim from "./index.ts";
 
-const NUM_GAMES = 100;
+const FootballRealismGameSim =
+	RealismGameSim as any;
 
-const round = (value: number) =>
-	Math.round(value * 1000) / 1000;
+const NUM_ROSTER_SETS = 5;
+const GAMES_PER_SET = 20;
+
+type Totals = {
+	points: number;
+	passAttempts: number;
+	passCompletions: number;
+	passYards: number;
+	passTouchdowns: number;
+	interceptions: number;
+	sacks: number;
+	rushAttempts: number;
+	rushYards: number;
+	rushTouchdowns: number;
+	fumblesLost: number;
+};
+
+const makeTotals = (): Totals => ({
+	points: 0,
+	passAttempts: 0,
+	passCompletions: 0,
+	passYards: 0,
+	passTouchdowns: 0,
+	interceptions: 0,
+	sacks: 0,
+	rushAttempts: 0,
+	rushYards: 0,
+	rushTouchdowns: 0,
+	fumblesLost: 0,
+});
+
+const round = (
+	value: number,
+) =>
+	Math.round(
+		value * 1000,
+	) / 1000;
 
 const genTwoTeams = async () => {
 	resetG();
@@ -46,26 +83,31 @@ const genTwoTeams = async () => {
 				),
 			),
 		],
+
 		teams:
 			teamsDefault.map(
 				team.generate,
 			),
+
 		teamSeasons:
-			teamsDefault.map((t) =>
-				team.genSeasonRow(t),
+			teamsDefault.map(
+				(t) =>
+					team.genSeasonRow(
+						t,
+					),
 			),
+
 		teamStats:
-			teamsDefault.map((t) =>
-				team.genStatsRow(
-					t.tid,
-				),
+			teamsDefault.map(
+				(t) =>
+					team.genStatsRow(
+						t.tid,
+					),
 			),
 	});
 };
 
-const initGame = async (
-	gid: number,
-) => {
+const prepareTeams = async () => {
 	const teams =
 		await loadTeams(
 			[0, 1],
@@ -90,12 +132,21 @@ const initGame = async (
 		}
 	}
 
-	return new GameSim({
+	return [
+		teams[0],
+		teams[1],
+	] as any;
+};
+
+const initBaseGame = async (
+	gid: number,
+) => {
+	const teams =
+		await prepareTeams();
+
+	return new BaseGameSim({
 		gid,
-		teams: [
-			teams[0],
-			teams[1],
-		],
+		teams,
 		baseInjuryRate:
 			g.get(
 				"injuryRate",
@@ -107,240 +158,377 @@ const initGame = async (
 	});
 };
 
-beforeAll(async () => {
-	await genTwoTeams();
-});
+const initRealismGame = async (
+	gid: number,
+) => {
+	const teams =
+		await prepareTeams();
+
+	return new FootballRealismGameSim({
+		gid,
+		teams,
+		baseInjuryRate:
+			g.get(
+				"injuryRate",
+			),
+		doPlayByPlay: false,
+		homeCourtFactor: 1,
+		allStarGame: false,
+		neutralSite: false,
+	}) as any;
+};
+
+const recordResult = (
+	totals: Totals,
+	result: any,
+) => {
+	for (
+		const t of result.team
+	) {
+		const stat =
+			t.stat;
+
+		totals.points +=
+			stat.pts ?? 0;
+
+		totals.passAttempts +=
+			stat.pss ?? 0;
+
+		totals.passCompletions +=
+			stat.pssCmp ?? 0;
+
+		totals.passYards +=
+			stat.pssYds ?? 0;
+
+		totals.passTouchdowns +=
+			stat.pssTD ?? 0;
+
+		totals.interceptions +=
+			stat.pssInt ?? 0;
+
+		totals.sacks +=
+			stat.pssSk ?? 0;
+
+		totals.rushAttempts +=
+			stat.rus ?? 0;
+
+		totals.rushYards +=
+			stat.rusYds ?? 0;
+
+		totals.rushTouchdowns +=
+			stat.rusTD ?? 0;
+
+		totals.fumblesLost +=
+			stat.fmbLost ?? 0;
+	}
+};
+
+const summarize = (
+	totals: Totals,
+	teamGames: number,
+) => {
+	const dropbacks =
+		totals.passAttempts +
+		totals.sacks;
+
+	const offensivePlays =
+		dropbacks +
+		totals.rushAttempts;
+
+	return {
+		pointsPerTeamGame:
+			round(
+				totals.points /
+					teamGames,
+			),
+
+		passAttemptsPerTeamGame:
+			round(
+				totals.passAttempts /
+					teamGames,
+			),
+
+		completionPct:
+			round(
+				totals.passCompletions /
+					totals.passAttempts,
+			),
+
+		passYardsPerTeamGame:
+			round(
+				totals.passYards /
+					teamGames,
+			),
+
+		passYardsPerAttempt:
+			round(
+				totals.passYards /
+					totals.passAttempts,
+			),
+
+		passTouchdownsPerTeamGame:
+			round(
+				totals.passTouchdowns /
+					teamGames,
+			),
+
+		interceptionsPerTeamGame:
+			round(
+				totals.interceptions /
+					teamGames,
+			),
+
+		interceptionRate:
+			round(
+				totals.interceptions /
+					totals.passAttempts,
+			),
+
+		sacksPerTeamGame:
+			round(
+				totals.sacks /
+					teamGames,
+			),
+
+		sackRate:
+			round(
+				totals.sacks /
+					dropbacks,
+			),
+
+		rushAttemptsPerTeamGame:
+			round(
+				totals.rushAttempts /
+					teamGames,
+			),
+
+		rushYardsPerTeamGame:
+			round(
+				totals.rushYards /
+					teamGames,
+			),
+
+		rushYardsPerAttempt:
+			round(
+				totals.rushYards /
+					totals.rushAttempts,
+			),
+
+		rushTouchdownsPerTeamGame:
+			round(
+				totals.rushTouchdowns /
+					teamGames,
+			),
+
+		fumblesLostPerTeamGame:
+			round(
+				totals.fumblesLost /
+					teamGames,
+			),
+
+		turnoversPerTeamGame:
+			round(
+				(
+					totals.interceptions +
+					totals.fumblesLost
+				) /
+					teamGames,
+			),
+
+		offensivePlaysPerTeamGame:
+			round(
+				offensivePlays /
+					teamGames,
+			),
+
+		passRate:
+			round(
+				dropbacks /
+					offensivePlays,
+			),
+	};
+};
 
 test(
-	"base football engine statistical control sample",
+	"paired base and realism football statistical validation",
 	async () => {
-		const TEAM_GAMES =
-			NUM_GAMES * 2;
+		const baseTotals =
+			makeTotals();
 
-		let points = 0;
+		const realismTotals =
+			makeTotals();
 
-		let passAttempts = 0;
-		let passCompletions = 0;
-		let passYards = 0;
-		let passTouchdowns = 0;
-		let interceptions = 0;
-		let sacks = 0;
-
-		let rushAttempts = 0;
-		let rushYards = 0;
-		let rushTouchdowns = 0;
-
-		let fumblesLost = 0;
+		let gid = 10_000;
 
 		for (
-			let i = 0;
-			i < NUM_GAMES;
-			i++
+			let rosterSet = 0;
+			rosterSet <
+			NUM_ROSTER_SETS;
+			rosterSet++
 		) {
-			const game =
-				await initGame(
-					5000 + i,
-				);
-
-			const result =
-				game.run();
+			await genTwoTeams();
 
 			for (
-				const t of
-					result.team
+				let gameIndex = 0;
+				gameIndex <
+				GAMES_PER_SET;
+				gameIndex++
 			) {
-				const stat =
-					t.stat;
+				const baseGame =
+					await initBaseGame(
+						gid,
+					);
 
-				points +=
-					stat.pts ?? 0;
+				const baseResult =
+					baseGame.run();
 
-				passAttempts +=
-					stat.pss ?? 0;
+				recordResult(
+					baseTotals,
+					baseResult,
+				);
 
-				passCompletions +=
-					stat.pssCmp ?? 0;
+				const realismGame =
+					await initRealismGame(
+						gid + 1,
+					);
 
-				passYards +=
-					stat.pssYds ?? 0;
+				const realismResult =
+					realismGame.run();
 
-				passTouchdowns +=
-					stat.pssTD ?? 0;
+				recordResult(
+					realismTotals,
+					realismResult,
+				);
 
-				interceptions +=
-					stat.pssInt ?? 0;
-
-				sacks +=
-					stat.pssSk ?? 0;
-
-				rushAttempts +=
-					stat.rus ?? 0;
-
-				rushYards +=
-					stat.rusYds ?? 0;
-
-				rushTouchdowns +=
-					stat.rusTD ?? 0;
-
-				fumblesLost +=
-					stat.fmbLost ?? 0;
+				gid += 2;
 			}
 		}
 
-		const dropbacks =
-			passAttempts +
-			sacks;
+		const games =
+			NUM_ROSTER_SETS *
+			GAMES_PER_SET;
 
-		const offensivePlays =
-			dropbacks +
-			rushAttempts;
+		const teamGames =
+			games * 2;
 
-		const summary = {
-			games:
-				NUM_GAMES,
+		const baseline =
+			summarize(
+				baseTotals,
+				teamGames,
+			);
 
-			teamGames:
-				TEAM_GAMES,
+		const realism =
+			summarize(
+				realismTotals,
+				teamGames,
+			);
 
+		const delta = {
 			pointsPerTeamGame:
 				round(
-					points /
-						TEAM_GAMES,
-				),
-
-			passAttemptsPerTeamGame:
-				round(
-					passAttempts /
-						TEAM_GAMES,
+					realism
+						.pointsPerTeamGame -
+						baseline
+							.pointsPerTeamGame,
 				),
 
 			completionPct:
 				round(
-					passCompletions /
-						passAttempts,
-				),
-
-			passYardsPerTeamGame:
-				round(
-					passYards /
-						TEAM_GAMES,
+					realism
+						.completionPct -
+						baseline
+							.completionPct,
 				),
 
 			passYardsPerAttempt:
 				round(
-					passYards /
-						passAttempts,
-				),
-
-			passTouchdownsPerTeamGame:
-				round(
-					passTouchdowns /
-						TEAM_GAMES,
-				),
-
-			interceptionsPerTeamGame:
-				round(
-					interceptions /
-						TEAM_GAMES,
+					realism
+						.passYardsPerAttempt -
+						baseline
+							.passYardsPerAttempt,
 				),
 
 			interceptionRate:
 				round(
-					interceptions /
-						passAttempts,
-				),
-
-			sacksPerTeamGame:
-				round(
-					sacks /
-						TEAM_GAMES,
+					realism
+						.interceptionRate -
+						baseline
+							.interceptionRate,
 				),
 
 			sackRate:
 				round(
-					sacks /
-						dropbacks,
-				),
-
-			rushAttemptsPerTeamGame:
-				round(
-					rushAttempts /
-						TEAM_GAMES,
-				),
-
-			rushYardsPerTeamGame:
-				round(
-					rushYards /
-						TEAM_GAMES,
+					realism
+						.sackRate -
+						baseline
+							.sackRate,
 				),
 
 			rushYardsPerAttempt:
 				round(
-					rushYards /
-						rushAttempts,
-				),
-
-			rushTouchdownsPerTeamGame:
-				round(
-					rushTouchdowns /
-						TEAM_GAMES,
-				),
-
-			fumblesLostPerTeamGame:
-				round(
-					fumblesLost /
-						TEAM_GAMES,
+					realism
+						.rushYardsPerAttempt -
+						baseline
+							.rushYardsPerAttempt,
 				),
 
 			turnoversPerTeamGame:
 				round(
-					(
-						interceptions +
-						fumblesLost
-					) /
-						TEAM_GAMES,
-				),
-
-			offensivePlaysPerTeamGame:
-				round(
-					offensivePlays /
-						TEAM_GAMES,
+					realism
+						.turnoversPerTeamGame -
+						baseline
+							.turnoversPerTeamGame,
 				),
 
 			passRate:
 				round(
-					dropbacks /
-						offensivePlays,
+					realism
+						.passRate -
+						baseline
+							.passRate,
 				),
 		};
 
 		console.log(
-			"FOOTBALL_BASELINE_VALIDATION",
-			JSON.stringify(
-				summary,
-			),
+			"FOOTBALL_PAIRED_VALIDATION",
+			JSON.stringify({
+				rosterSets:
+					NUM_ROSTER_SETS,
+
+				gamesPerEngine:
+					games,
+
+				teamGamesPerEngine:
+					teamGames,
+
+				baseline,
+
+				realism,
+
+				delta,
+			}),
 		);
 
 		assert(
 			Number.isFinite(
-				summary
+				baseline
 					.pointsPerTeamGame,
 			),
 		);
 
 		assert(
 			Number.isFinite(
-				summary
-					.completionPct,
+				realism
+					.pointsPerTeamGame,
 			),
 		);
 
 		assert(
 			Number.isFinite(
-				summary
+				delta
 					.rushYardsPerAttempt,
 			),
 		);
 	},
-	60_000,
+	120_000,
 );
