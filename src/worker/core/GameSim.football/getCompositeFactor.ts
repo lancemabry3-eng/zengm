@@ -6,6 +6,7 @@ import type {
 	PlayerGameSim,
 	PlayersOnField,
 	RunConcept,
+	RunDirection,
 } from "./types.ts";
 
 export type CompositeFactorParams = {
@@ -363,15 +364,59 @@ const RUN_BLOCK_SLOT_WEIGHTS: Record<
 	],
 };
 
+const RUN_DIRECTION_SLOT_MULTIPLIERS: Record<
+	RunDirection,
+	readonly [
+		number,
+		number,
+		number,
+		number,
+		number,
+	]
+> = {
+	LEFT: [
+		1.3,
+		1.15,
+		1,
+		0.85,
+		0.7,
+	],
+	MIDDLE: [
+		1,
+		1,
+		1,
+		1,
+		1,
+	],
+	RIGHT: [
+		0.7,
+		0.85,
+		1,
+		1.15,
+		1.3,
+	],
+};
+
 export const getRunBlockSlotWeight = (
 	concept: RunConcept,
 	slotIndex: number,
+	direction: RunDirection = "MIDDLE",
 ): number => {
-	return (
+	const conceptWeight =
 		RUN_BLOCK_SLOT_WEIGHTS[
 			concept
 		][slotIndex] ??
-		1
+		1;
+
+	const directionMultiplier =
+		RUN_DIRECTION_SLOT_MULTIPLIERS[
+			direction
+		][slotIndex] ??
+		1;
+
+	return (
+		conceptWeight *
+		directionMultiplier
 	);
 };
 
@@ -812,6 +857,7 @@ export const getRunDisruptionLevel = (
 	>,
 	concept: RunConcept,
 	teamRunStopping: number,
+	direction: RunDirection = "MIDDLE",
 ): number => {
 	const ol =
 		offense.OL ?? [];
@@ -850,6 +896,7 @@ export const getRunDisruptionLevel = (
 				getRunBlockSlotWeight(
 					concept,
 					slotIndex,
+					direction,
 				);
 		} else if (
 			te.includes(
@@ -1807,6 +1854,7 @@ const getRunBlockingNeedScore = (
 	defender: PlayerGameSim,
 	slotIndex: number,
 	concept: RunConcept,
+	direction: RunDirection,
 ): number => {
 	const defenderStrength =
 		getRunStopMatchupStrength(
@@ -1828,6 +1876,7 @@ const getRunBlockingNeedScore = (
 			getRunBlockSlotWeight(
 				concept,
 				slotIndex,
+				direction,
 			),
 		);
 
@@ -1922,6 +1971,7 @@ const buildRunBlockingComboAssignments = (
 		PlayerGameSim
 	>,
 	concept: RunConcept,
+	direction: RunDirection,
 ): Map<
 	PlayerGameSim,
 	PlayerGameSim[]
@@ -1990,6 +2040,7 @@ const buildRunBlockingComboAssignments = (
 				leftDefender,
 				leftSlot,
 				concept,
+				direction,
 			);
 
 		const rightNeed =
@@ -1998,6 +2049,7 @@ const buildRunBlockingComboAssignments = (
 				rightDefender,
 				rightSlot,
 				concept,
+				direction,
 			);
 
 		const target =
@@ -2043,6 +2095,7 @@ const buildRunBlockingComboAssignments = (
 			getRunBlockSlotWeight(
 				concept,
 				targetSlot,
+				direction,
 			);
 
 		const score =
@@ -2115,6 +2168,7 @@ export const getRunBlockingPlan = (
 	offense: PlayersOnField,
 	defense: PlayersOnField,
 	concept: RunConcept,
+	direction: RunDirection = "MIDDLE",
 ): RunBlockingPlan => {
 	const matchups =
 		getRunBlockingMatchups(
@@ -2127,6 +2181,7 @@ export const getRunBlockingPlan = (
 			offense,
 			matchups,
 			concept,
+			direction,
 		);
 
 	return {
