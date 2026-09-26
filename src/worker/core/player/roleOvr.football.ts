@@ -195,7 +195,6 @@ const ROLE_SPECS = {
 			ballSecurity: 1,
 		},
 	},
-
 	RB_FEATURE: {
 		position: "RB",
 		weights: {
@@ -248,7 +247,6 @@ const ROLE_SPECS = {
 			endurance: 0.75,
 		},
 	},
-
 	WR_X: {
 		position: "WR",
 		weights: {
@@ -299,7 +297,6 @@ const ROLE_SPECS = {
 			stre: 0.5,
 		},
 	},
-
 	TE_Y: {
 		position: "TE",
 		weights: {
@@ -340,7 +337,6 @@ const ROLE_SPECS = {
 			rushing: 0.75,
 		},
 	},
-
 	LT: {
 		position: "OL",
 		weights: {
@@ -388,7 +384,6 @@ const ROLE_SPECS = {
 			athleticism: 1,
 		},
 	},
-
 	DL_EDGE: {
 		position: "DL",
 		weights: {
@@ -427,7 +422,6 @@ const ROLE_SPECS = {
 			passRushing: 0.5,
 		},
 	},
-
 	LB_EDGE: {
 		position: "LB",
 		weights: {
@@ -469,7 +463,6 @@ const ROLE_SPECS = {
 			athleticism: 0.5,
 		},
 	},
-
 	CB_OUTSIDE: {
 		position: "CB",
 		weights: {
@@ -488,7 +481,6 @@ const ROLE_SPECS = {
 			athleticism: 0.75,
 		},
 	},
-
 	FS: {
 		position: "S",
 		weights: {
@@ -533,6 +525,12 @@ const getComponentValue = (
 			COMPOSITE_WEIGHTS[
 				component as CompositeKey
 			];
+
+		if (info === undefined) {
+			throw new Error(
+				`Unknown football composite role component "${component}"`,
+			);
+		}
 
 		return compositeRating(
 			ratings,
