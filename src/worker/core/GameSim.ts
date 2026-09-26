@@ -3742,14 +3742,21 @@ class GameSimFootballRealism extends GameSimFootball {
 				>,
 		) => {
 			const candidates =
-				positions.flatMap(
-					(pos) =>
-						this
-							.playersOnField[
-							o
-						][pos] ??
-						[],
-				);
+				positions
+					.flatMap(
+						(pos) =>
+							this
+								.playersOnField[
+								o
+							][pos] ??
+							[],
+					)
+					.filter(
+						(candidate) =>
+							!pbw.has(
+								candidate,
+							),
+					);
 
 			return choice(
 				candidates,
