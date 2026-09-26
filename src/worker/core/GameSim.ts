@@ -2328,6 +2328,13 @@ class GameSimFootballRealism extends GameSimFootball {
 			  >
 			| undefined;
 
+		let runBlockingMatchups:
+			| Map<
+					PlayerGameSim,
+					PlayerGameSim
+			  >
+			| undefined;
+
 		const qb =
 			this.getTopPlayerOnField(
 				o,
@@ -2417,7 +2424,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			rbw =
 				new Map();
 
-			const runBlockingMatchups =
+			runBlockingMatchups =
 				getRunBlockingMatchups(
 					this.playersOnField[
 						o
@@ -2886,9 +2893,12 @@ class GameSimFootballRealism extends GameSimFootball {
 		} else if (safety) {
 			this.doSafety();
 		} else {
-			this.doTackle({
+			this.doRunTackle({
 				ydsFromScrimmage:
 					yds,
+				rbw,
+				runBlockingMatchups,
+				runConcept,
 			});
 		}
 
@@ -2942,6 +2952,206 @@ class GameSimFootballRealism extends GameSimFootball {
 		}
 
 		return dt;
+	}
+
+	doRunTackle({
+		ydsFromScrimmage,
+		rbw,
+		runBlockingMatchups,
+		runConcept,
+	}: {
+		ydsFromScrimmage:
+			number;
+		rbw:
+			| Map<
+					PlayerGameSim,
+					{
+						type:
+							| "OL"
+							| "Other";
+						won: boolean;
+					}
+			  >
+			| undefined;
+		runBlockingMatchups:
+			| Map<
+					PlayerGameSim,
+					PlayerGameSim
+			  >
+			| undefined;
+		runConcept:
+			| RunConcept
+			| undefined;
+	}) {
+		if (
+			!rbw ||
+			!runBlockingMatchups ||
+			runConcept ===
+				undefined
+		) {
+			super.doTackle({
+				ydsFromScrimmage,
+			});
+			return;
+		}
+
+		const o =
+			this
+				.currentPlay
+				.state.current.o;
+
+		const d =
+			this
+				.currentPlay
+				.state.current.d;
+
+		const ol =
+			this.playersOnField[
+				o
+			].OL ?? [];
+
+		const failedMatchups =
+			Array.from(
+				rbw.entries(),
+			).flatMap(
+				([
+					blocker,
+					result,
+				]) => {
+					if (
+						result.type !==
+							"OL" ||
+						result.won
+					) {
+						return [];
+					}
+
+					const defender =
+						runBlockingMatchups.get(
+							blocker,
+						);
+
+					if (!defender) {
+						return [];
+					}
+
+					const slotIndex =
+						ol.indexOf(
+							blocker,
+						);
+
+					if (slotIndex < 0) {
+						return [];
+					}
+
+					const strength =
+						getRunStopMatchupStrength(
+							defender,
+							slotIndex,
+						);
+
+					const laneWeight =
+						getRunBlockSlotWeight(
+							runConcept,
+							slotIndex,
+						);
+
+					return [
+						{
+							defender,
+							weight:
+								Math.max(
+									0.05,
+									strength,
+								) *
+								Math.max(
+									0.25,
+									laneWeight,
+								),
+						},
+					];
+				},
+			);
+
+		if (
+			failedMatchups.length ===
+			0
+		) {
+			super.doTackle({
+				ydsFromScrimmage,
+			});
+			return;
+		}
+
+		const directMatchupChance =
+			ydsFromScrimmage <
+			0
+				? 0.88
+				: ydsFromScrimmage <
+					  2
+					? 0.72
+					: ydsFromScrimmage <
+						  7
+						? 0.38
+						: ydsFromScrimmage <
+							  15
+							? 0.12
+							: 0.04;
+
+		if (
+			Math.random() >=
+			directMatchupChance
+		) {
+			super.doTackle({
+				ydsFromScrimmage,
+			});
+			return;
+		}
+
+		if (
+			Math.random() >=
+			0.9
+		) {
+			return;
+		}
+
+		const primary =
+			choice(
+				failedMatchups,
+				(candidate) =>
+					candidate
+						.weight **
+					2,
+			).defender;
+
+		const tacklers =
+			new Set<
+				PlayerGameSim
+			>([
+				primary,
+			]);
+
+		if (
+			Math.random() <
+			0.25
+		) {
+			tacklers.add(
+				this.pickPlayer(
+					d,
+					"tackling",
+					undefined,
+					1.5,
+				),
+			);
+		}
+
+		this.currentPlay.addEvent({
+			type: "tck",
+			tacklers,
+			loss:
+				ydsFromScrimmage <
+				0,
+		});
 	}
 
 	doSack(
