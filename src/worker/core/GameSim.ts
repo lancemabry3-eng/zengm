@@ -37,6 +37,7 @@ import type {
 	PassConcept,
 	PlayerGameSim,
 	RunConcept,
+	RunDirection,
 	TeamGameSim,
 } from "./GameSim.football/types.ts";
 import GameSimHockey from "./GameSim.hockey/index.ts";
@@ -245,6 +246,12 @@ const PASS_CONCEPTS: PassConcept[] = [
 	"DEEP_SHOT",
 	"PLAY_ACTION",
 	"SCREEN",
+];
+
+const RUN_DIRECTIONS: RunDirection[] = [
+	"LEFT",
+	"MIDDLE",
+	"RIGHT",
 ];
 
 const averageDefined = (
@@ -795,6 +802,194 @@ const getPassConceptSituationWeight = (
 	return weight;
 };
 
+const RUN_DIRECTION_CONCEPT_WEIGHTS: Record<
+	RunConcept,
+	Record<RunDirection, number>
+> = {
+	INSIDE_ZONE: {
+		LEFT: 0.9,
+		MIDDLE: 1.55,
+		RIGHT: 0.9,
+	},
+	OUTSIDE_ZONE: {
+		LEFT: 1.45,
+		MIDDLE: 0.2,
+		RIGHT: 1.45,
+	},
+	POWER: {
+		LEFT: 1.25,
+		MIDDLE: 0.65,
+		RIGHT: 1.25,
+	},
+	COUNTER: {
+		LEFT: 1.35,
+		MIDDLE: 0.35,
+		RIGHT: 1.35,
+	},
+	DRAW: {
+		LEFT: 0.55,
+		MIDDLE: 1.6,
+		RIGHT: 0.55,
+	},
+	READ_OPTION: {
+		LEFT: 1.15,
+		MIDDLE: 0.65,
+		RIGHT: 1.15,
+	},
+	QB_POWER: {
+		LEFT: 0.75,
+		MIDDLE: 1.45,
+		RIGHT: 0.75,
+	},
+	JET_SWEEP: {
+		LEFT: 1.7,
+		MIDDLE: 0.05,
+		RIGHT: 1.7,
+	},
+};
+
+const getRunDirectionOlScore = (
+	team: TeamGameSim,
+	direction: RunDirection,
+): number | undefined => {
+	const ol =
+		team.depth.OL ?? [];
+
+	const slots =
+		direction === "LEFT"
+			? [
+					{
+						index: 0,
+						role: "LT" as FunctionalRole,
+					},
+					{
+						index: 1,
+						role: "LG" as FunctionalRole,
+					},
+				]
+			: direction === "RIGHT"
+				? [
+						{
+							index: 3,
+							role: "RG" as FunctionalRole,
+						},
+						{
+							index: 4,
+							role: "RT" as FunctionalRole,
+						},
+					]
+				: [
+						{
+							index: 1,
+							role: "LG" as FunctionalRole,
+						},
+						{
+							index: 2,
+							role: "C" as FunctionalRole,
+						},
+						{
+							index: 3,
+							role: "RG" as FunctionalRole,
+						},
+					];
+
+	const scores:
+		number[] = [];
+
+	for (
+		const {
+			index,
+			role,
+		} of slots
+	) {
+		const blocker =
+			ol[index];
+
+		if (!blocker) {
+			continue;
+		}
+
+		const roleScore =
+			blocker.roleOvrs?.[
+				role
+			];
+
+		if (
+			typeof roleScore ===
+			"number"
+		) {
+			scores.push(
+				roleScore,
+			);
+		} else if (
+			typeof blocker
+				.compositeRating
+				.runBlocking ===
+			"number"
+		) {
+			scores.push(
+				blocker
+					.compositeRating
+					.runBlocking *
+					100,
+			);
+		}
+	}
+
+	if (scores.length === 0) {
+		return undefined;
+	}
+
+	return (
+		scores.reduce(
+			(sum, score) =>
+				sum + score,
+			0,
+		) /
+		scores.length
+	);
+};
+
+const getRunDirectionRosterFactor = (
+	team: TeamGameSim,
+	direction: RunDirection,
+): number => {
+	const score =
+		getRunDirectionOlScore(
+			team,
+			direction,
+		);
+
+	if (score === undefined) {
+		return 1;
+	}
+
+	return helpers.bound(
+		1 +
+			(score - 50) /
+				180,
+		0.75,
+		1.25,
+	);
+};
+
+const chooseRunDirection = (
+	team: TeamGameSim,
+	concept: RunConcept,
+): RunDirection => {
+	return choice(
+		RUN_DIRECTIONS,
+		(direction) =>
+			RUN_DIRECTION_CONCEPT_WEIGHTS[
+				concept
+			][direction] *
+			getRunDirectionRosterFactor(
+				team,
+				direction,
+			),
+	);
+};
+
 const chooseOffensivePlayConcept = (
 	team: TeamGameSim,
 	playType: "run" | "pass",
@@ -821,9 +1016,16 @@ const chooseOffensivePlayConcept = (
 				getDesignedRunUsageFactor(team, candidate, qb),
 		);
 
+		const direction =
+			chooseRunDirection(
+				team,
+				concept,
+			);
+
 		return {
 			type: "run",
 			concept,
+			direction,
 		};
 	}
 
@@ -2282,6 +2484,10 @@ class GameSimFootballRealism extends GameSimFootball {
 			| RunConcept
 			| undefined;
 
+		let runDirection:
+			| RunDirection
+			| undefined;
+
 		if (!qbScramble) {
 			this.updatePlayersOnField(
 				"run",
@@ -2304,6 +2510,16 @@ class GameSimFootballRealism extends GameSimFootball {
 							.currentOffensivePlayConcept
 							.concept
 					: "INSIDE_ZONE";
+
+			runDirection =
+				this
+					.currentOffensivePlayConcept
+					?.type === "run"
+					? this
+							.currentOffensivePlayConcept
+							.direction ??
+						"MIDDLE"
+					: "MIDDLE";
 		}
 
 		const runEffects =
@@ -2444,6 +2660,8 @@ class GameSimFootballRealism extends GameSimFootball {
 						d
 					],
 					runConcept,
+					runDirection ??
+						"MIDDLE",
 				);
 
 			runBlockingMatchups =
@@ -2741,6 +2959,8 @@ class GameSimFootballRealism extends GameSimFootball {
 						getRunBlockSlotWeight(
 							runConcept,
 							slotIndex,
+							runDirection ??
+								"MIDDLE",
 						);
 				} else if (
 					te.includes(
@@ -2822,6 +3042,8 @@ class GameSimFootballRealism extends GameSimFootball {
 						d
 					].compositeRating
 						.runStopping,
+					runDirection ??
+						"MIDDLE",
 				);
 		}
 
@@ -3051,6 +3273,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				rbw,
 				runBlockingMatchups,
 				runConcept,
+				runDirection,
 			});
 		}
 
@@ -3111,6 +3334,7 @@ class GameSimFootballRealism extends GameSimFootball {
 		rbw,
 		runBlockingMatchups,
 		runConcept,
+		runDirection,
 	}: {
 		ydsFromScrimmage:
 			number;
@@ -3133,6 +3357,9 @@ class GameSimFootballRealism extends GameSimFootball {
 			| undefined;
 		runConcept:
 			| RunConcept
+			| undefined;
+		runDirection:
+			| RunDirection
 			| undefined;
 	}) {
 		if (
@@ -3206,6 +3433,8 @@ class GameSimFootballRealism extends GameSimFootball {
 						getRunBlockSlotWeight(
 							runConcept,
 							slotIndex,
+							runDirection ??
+								"MIDDLE",
 						);
 
 					return [
