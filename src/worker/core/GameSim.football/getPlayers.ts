@@ -11,6 +11,7 @@ import {
 import type {
 	Formation,
 	OffensivePersonnel,
+	PassConcept,
 	PlayerGameSim,
 	PlayersOnField,
 	TeamGameSim,
@@ -185,10 +186,6 @@ export const getRoleBasedDepth = (
 
 	search(0, 0);
 
-	/*
-	 * If a complete role assignment cannot be made,
-	 * preserve the existing depth chart.
-	 */
 	if (
 		bestPlayers.length !==
 		roles.length
@@ -235,18 +232,6 @@ const offensivePersonnelFitCache =
 		>
 	>();
 
-/*
- * Score how naturally a roster fits one offensive personnel
- * package.
- *
- * All current normal personnel packages contain five RB/WR/TE
- * skill players, so averaging their assigned functional-role
- * scores makes the packages directly comparable.
- *
- * An undefined result means the game-sim player objects do not
- * contain enough functional-role data. Callers can then fall
- * back to neutral package weighting for compatibility.
- */
 export const getOffensivePersonnelFit = (
 	team: TeamGameSim,
 	personnel: OffensivePersonnel,
@@ -369,6 +354,314 @@ export const getOffensivePersonnelFit = (
 	return fit;
 };
 
+const maxDefined = (
+	values: Array<number | undefined>,
+): number | undefined => {
+	let best: number | undefined;
+
+	for (const value of values) {
+		if (
+			value !== undefined &&
+			(best === undefined ||
+				value > best)
+		) {
+			best = value;
+		}
+	}
+
+	return best;
+};
+
+/*
+ * Concept-aware target weighting.
+ *
+ * This keeps the existing on-field personnel intact while
+ * allowing the selected pass concept to favor the players
+ * whose functional roles actually fit the route family.
+ *
+ * Examples:
+ *
+ * - Deep shots favor deep-threat/X/Z receivers.
+ * - Quick game favors slot/possession targets.
+ * - Screens favor receiving/third-down backs and slot/Z WRs.
+ * - Play action gives receiving TEs and outside WRs more value.
+ *
+ * Raw receiving skill still matters, so a role label never
+ * completely overrides actual catching/getting-open ability.
+ */
+const getPassTargetRoleScore = (
+	p: PlayerGameSim,
+	concept: PassConcept,
+): number | undefined => {
+	if (concept === "QUICK_GAME") {
+		return maxDefined([
+			p.roleOvrs?.WR_SLOT,
+			p.roleOvrs?.WR_POSSESSION,
+			p.roleOvrs?.WR_Z,
+			p.roleOvrs?.TE_RECEIVING,
+			p.roleOvrs?.RB_RECEIVING,
+			p.roleOvrs?.RB_THIRD_DOWN,
+		]);
+	}
+
+	if (concept === "INTERMEDIATE") {
+		return maxDefined([
+			p.roleOvrs?.WR_X,
+			p.roleOvrs?.WR_Z,
+			p.roleOvrs?.WR_POSSESSION,
+			p.roleOvrs?.TE_RECEIVING,
+			p.roleOvrs?.TE_Y,
+			p.roleOvrs?.RB_RECEIVING,
+		]);
+	}
+
+	if (concept === "DEEP_SHOT") {
+		return maxDefined([
+			p.roleOvrs?.WR_DEEP_THREAT,
+			p.roleOvrs?.WR_X,
+			p.roleOvrs?.WR_Z,
+			p.roleOvrs?.TE_RECEIVING,
+		]);
+	}
+
+	if (concept === "PLAY_ACTION") {
+		return maxDefined([
+			p.roleOvrs?.WR_X,
+			p.roleOvrs?.WR_Z,
+			p.roleOvrs?.TE_RECEIVING,
+			p.roleOvrs?.TE_Y,
+			p.roleOvrs?.RB_RECEIVING,
+		]);
+	}
+
+	return maxDefined([
+		p.roleOvrs?.RB_RECEIVING,
+		p.roleOvrs?.RB_THIRD_DOWN,
+		p.roleOvrs?.WR_SLOT,
+		p.roleOvrs?.WR_Z,
+	]);
+};
+
+export const getPassTargetWeight = (
+	p: PlayerGameSim,
+	concept: PassConcept,
+): number => {
+	const roleScore =
+		getPassTargetRoleScore(
+			p,
+			concept,
+		);
+
+	const roleFactor =
+		roleScore === undefined
+			? 1
+			: helpers.bound(
+					0.7 +
+						(roleScore / 100) *
+							0.9,
+					0.7,
+					1.6,
+				);
+
+	const catching =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.catching,
+		);
+
+	const gettingOpen =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.gettingOpen,
+		);
+
+	const speed =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.speed,
+		);
+
+	const rushing =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.rushing,
+		);
+
+	const energy =
+		helpers.bound(
+			p.stat.energy ?? 1,
+			0.25,
+			1,
+		);
+
+	let skillWeight: number;
+
+	if (concept === "QUICK_GAME") {
+		skillWeight =
+			catching * 0.5 +
+			gettingOpen * 0.5;
+	} else if (
+		concept ===
+		"DEEP_SHOT"
+	) {
+		skillWeight =
+			gettingOpen * 0.45 +
+			speed * 0.35 +
+			catching * 0.2;
+	} else if (
+		concept ===
+		"PLAY_ACTION"
+	) {
+		skillWeight =
+			gettingOpen * 0.55 +
+			catching * 0.3 +
+			speed * 0.15;
+	} else if (
+		concept ===
+		"SCREEN"
+	) {
+		skillWeight =
+			catching * 0.35 +
+			rushing * 0.35 +
+			speed * 0.3;
+	} else {
+		skillWeight =
+			gettingOpen * 0.6 +
+			catching * 0.4;
+	}
+
+	return (
+		Math.max(
+			0.01,
+			skillWeight,
+		) **
+			1.5 *
+		roleFactor *
+		energy
+	);
+};
+
+/*
+ * Concept-aware coverage weighting.
+ *
+ * The defender still needs real pass-coverage ability, but
+ * functional roles decide which kinds of defenders are most
+ * naturally involved in each pass concept.
+ *
+ * Deep shots emphasize outside corners and safeties.
+ * Quick game emphasizes slot coverage and underneath LBs.
+ * Screens give tackling more weight than other concepts.
+ */
+const getCoverageRoleScore = (
+	p: PlayerGameSim,
+	concept: PassConcept,
+): number | undefined => {
+	if (concept === "DEEP_SHOT") {
+		return maxDefined([
+			p.roleOvrs?.CB_OUTSIDE,
+			p.roleOvrs?.FS,
+			p.roleOvrs?.SS,
+		]);
+	}
+
+	if (concept === "QUICK_GAME") {
+		return maxDefined([
+			p.roleOvrs?.CB_SLOT,
+			p.roleOvrs?.MIKE,
+			p.roleOvrs?.WILL,
+			p.roleOvrs?.SS,
+			p.roleOvrs?.CB_OUTSIDE,
+		]);
+	}
+
+	if (concept === "SCREEN") {
+		return maxDefined([
+			p.roleOvrs?.WILL,
+			p.roleOvrs?.SAM,
+			p.roleOvrs?.CB_SLOT,
+			p.roleOvrs?.SS,
+			p.roleOvrs?.MIKE,
+		]);
+	}
+
+	if (concept === "PLAY_ACTION") {
+		return maxDefined([
+			p.roleOvrs?.FS,
+			p.roleOvrs?.SS,
+			p.roleOvrs?.MIKE,
+			p.roleOvrs?.WILL,
+			p.roleOvrs?.CB_OUTSIDE,
+		]);
+	}
+
+	return maxDefined([
+		p.roleOvrs?.CB_OUTSIDE,
+		p.roleOvrs?.CB_SLOT,
+		p.roleOvrs?.FS,
+		p.roleOvrs?.SS,
+		p.roleOvrs?.WILL,
+	]);
+};
+
+export const getCoverageDefenderWeight = (
+	p: PlayerGameSim,
+	concept: PassConcept,
+): number => {
+	const roleScore =
+		getCoverageRoleScore(
+			p,
+			concept,
+		);
+
+	const roleFactor =
+		roleScore === undefined
+			? 1
+			: helpers.bound(
+					0.75 +
+						(roleScore / 100) *
+							0.75,
+					0.75,
+					1.5,
+				);
+
+	const coverage =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.passCoverage,
+		);
+
+	const tackling =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.tackling,
+		);
+
+	const energy =
+		helpers.bound(
+			p.stat.energy ?? 1,
+			0.25,
+			1,
+		);
+
+	const skillWeight =
+		concept === "SCREEN"
+			? coverage * 0.55 +
+				tackling * 0.45
+			: coverage;
+
+	return (
+		skillWeight ** 2 *
+		roleFactor *
+		energy
+	);
+};
+
 type BaseDefensiveFront =
 	| "BASE_3_4"
 	| "BASE_4_3";
@@ -443,21 +736,6 @@ const getDefensiveFrontFitScore = (
 	return totalScore;
 };
 
-/*
- * Infer a team's preferred base defensive front from the
- * functional-role talent available in its front seven.
- *
- * Both candidate fronts use seven defenders, so their
- * aggregate role-fit scores are directly comparable.
- *
- * The result is cached for the entire game.
- *
- * Injuries can change who actually plays, but they do not
- * cause the defense to reinvent its base scheme every snap.
- *
- * Coaching preferences can override this later when the
- * coaching system is implemented.
- */
 export const getBaseDefensiveFront = (
 	team: TeamGameSim,
 ): BaseDefensiveFront => {
@@ -496,19 +774,6 @@ export const getBaseDefensiveFront = (
 	return front;
 };
 
-/*
- * Return the appropriate positional depth chart for a
- * specific formation.
- *
- * Normal offensive formations use the functional role
- * blueprint associated with their personnel package.
- *
- * Normal defensive formations use the functional role
- * blueprint associated with their defensive front.
- *
- * Special-teams formations do not define either identifier,
- * so they naturally retain their normal depth order.
- */
 export const getFormationDepth = (
 	depth: PlayerGameSim[],
 	formation: Formation,
