@@ -564,7 +564,7 @@ const getComponentValue = (
 };
 
 const toOvrScale = (score: number): number => {
-	let r = score * 100;
+	const r = score * 100;
 
 	let fudgeFactor = 0;
 
