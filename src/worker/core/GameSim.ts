@@ -1218,8 +1218,8 @@ const getEffectivePassPressure = (
 		rawPressure *
 			(
 				1.15 -
-				0.3 *
-					poise
+					0.3 *
+						poise
 			),
 		0,
 		1,
@@ -1241,24 +1241,24 @@ const getPassPressureEffects = (
 		return {
 			completionMultiplier:
 				1 -
-				0.1 *
-					pressure,
+					0.1 *
+						pressure,
 			interceptionMultiplier:
 				1 +
-				0.08 *
-					pressure,
+					0.08 *
+						pressure,
 			scrambleMultiplier:
 				1 +
-				0.55 *
-					pressure,
+					0.55 *
+						pressure,
 			yardageMultiplier:
 				1 -
-				0.04 *
-					pressure,
+					0.04 *
+						pressure,
 			explosiveMultiplier:
 				1 -
-				0.08 *
-					pressure,
+					0.08 *
+						pressure,
 		};
 	}
 
@@ -1266,24 +1266,24 @@ const getPassPressureEffects = (
 		return {
 			completionMultiplier:
 				1 -
-				0.24 *
-					pressure,
+					0.24 *
+						pressure,
 			interceptionMultiplier:
 				1 +
-				0.28 *
-					pressure,
+					0.28 *
+						pressure,
 			scrambleMultiplier:
 				1 +
-				1 *
-					pressure,
+					1 *
+						pressure,
 			yardageMultiplier:
 				1 -
-				0.18 *
-					pressure,
+					0.18 *
+						pressure,
 			explosiveMultiplier:
 				1 -
-				0.28 *
-					pressure,
+					0.28 *
+						pressure,
 		};
 	}
 
@@ -1291,24 +1291,24 @@ const getPassPressureEffects = (
 		return {
 			completionMultiplier:
 				1 -
-				0.18 *
-					pressure,
+					0.18 *
+						pressure,
 			interceptionMultiplier:
 				1 +
-				0.18 *
-					pressure,
+					0.18 *
+						pressure,
 			scrambleMultiplier:
 				1 +
-				0.85 *
-					pressure,
+					0.85 *
+						pressure,
 			yardageMultiplier:
 				1 -
-				0.12 *
-					pressure,
+					0.12 *
+						pressure,
 			explosiveMultiplier:
 				1 -
-				0.18 *
-					pressure,
+					0.18 *
+						pressure,
 		};
 	}
 
@@ -1316,48 +1316,48 @@ const getPassPressureEffects = (
 		return {
 			completionMultiplier:
 				1 -
-				0.06 *
-					pressure,
+					0.06 *
+						pressure,
 			interceptionMultiplier:
 				1 +
-				0.04 *
-					pressure,
+					0.04 *
+						pressure,
 			scrambleMultiplier:
 				1 +
-				0.25 *
-					pressure,
+					0.25 *
+						pressure,
 			yardageMultiplier:
 				1 -
-				0.02 *
-					pressure,
+					0.02 *
+						pressure,
 			explosiveMultiplier:
 				1 -
-				0.04 *
-					pressure,
+					0.04 *
+						pressure,
 		};
 	}
 
 	return {
 		completionMultiplier:
 			1 -
-			0.16 *
-				pressure,
+				0.16 *
+					pressure,
 		interceptionMultiplier:
 			1 +
-			0.18 *
-				pressure,
+				0.18 *
+					pressure,
 		scrambleMultiplier:
 			1 +
-			0.75 *
-				pressure,
+				0.75 *
+					pressure,
 		yardageMultiplier:
 			1 -
-			0.09 *
-				pressure,
+				0.09 *
+					pressure,
 		explosiveMultiplier:
 			1 -
-			0.14 *
-				pressure,
+				0.14 *
+					pressure,
 	};
 };
 
@@ -2460,7 +2460,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				) {
 					if (
 						playType ===
-						"starters"
+							"starters"
 					) {
 						this.recordStat(
 							t,
@@ -2668,12 +2668,12 @@ class GameSimFootballRealism extends GameSimFootball {
 			p = qb;
 		} else if (
 			runConcept ===
-			"QB_POWER"
+				"QB_POWER"
 		) {
 			p = qb;
 		} else if (
 			runConcept ===
-			"JET_SWEEP"
+				"JET_SWEEP"
 		) {
 			const wrs =
 				this.playersOnField[
@@ -2696,7 +2696,7 @@ class GameSimFootballRealism extends GameSimFootball {
 						qb;
 		} else if (
 			runConcept ===
-			"READ_OPTION"
+				"READ_OPTION"
 		) {
 			const rb =
 				getPreferredRb();
@@ -2810,7 +2810,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 				const opponentStrength =
 					matchupStrength ===
-					undefined
+						undefined
 						? teamRunStopping
 						: 0.35 *
 								teamRunStopping +
@@ -2859,7 +2859,7 @@ class GameSimFootballRealism extends GameSimFootball {
 						type,
 						won:
 							Math.random() <
-							probWin,
+								probWin,
 					},
 				);
 			};
@@ -3019,7 +3019,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 				if (
 					result.type ===
-					"OL"
+						"OL"
 				) {
 					const slotIndex =
 						ol.indexOf(
@@ -3077,7 +3077,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			if (totalWeight > 0) {
 				const winRate =
 					weightedWins /
-					totalWeight;
+						totalWeight;
 
 				runBlockingExecutionMultiplier =
 					helpers.bound(
@@ -3169,8 +3169,8 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		const disruptionMeanMultiplier =
 			1 -
-			0.08 *
-				runDisruptionLevel;
+				0.08 *
+					runDisruptionLevel;
 
 		const meanYds =
 			runEffects
@@ -3191,15 +3191,15 @@ class GameSimFootballRealism extends GameSimFootball {
 		const spreadYds =
 			runEffects
 				?.spreadYds ??
-			6;
+				6;
 
 		const minYds =
 			runEffects?.minYds ??
-			-5;
+				-5;
 
 		const maxYds =
 			runEffects?.maxYds ??
-			15;
+				15;
 
 		let ydsRaw =
 			Math.round(
@@ -3223,7 +3223,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			Math.random() <
-			disruptionStuffChance
+				disruptionStuffChance
 		) {
 			runStuffed =
 				true;
@@ -3240,18 +3240,18 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		const disruptionExplosiveMultiplier =
 			1 -
-			0.5 *
-				runDisruptionLevel;
+				0.5 *
+					runDisruptionLevel;
 
 		if (
 			!runStuffed &&
 			Math.random() <
-			(runEffects
-				?.explosiveChance ??
-				0.01) *
-				defensiveRunEffects
-					.explosiveMultiplier *
-				disruptionExplosiveMultiplier
+				(runEffects
+					?.explosiveChance ??
+					0.01) *
+					defensiveRunEffects
+						.explosiveMultiplier *
+					disruptionExplosiveMultiplier
 		) {
 			ydsRaw +=
 				randInt(
@@ -3291,15 +3291,15 @@ class GameSimFootballRealism extends GameSimFootball {
 			randInt(
 				runEffects
 					?.clockMin ??
-					2,
+						2,
 				runEffects
 					?.clockMax ??
-					4,
+						4,
 			) +
-			Math.abs(
-				yds,
-			) /
-				10;
+				Math.abs(
+					yds,
+				) /
+					10;
 
 		this.checkPenalties(
 			"run",
@@ -3390,10 +3390,10 @@ class GameSimFootballRealism extends GameSimFootball {
 
 			return (
 				dt +
-				this.doFumble(
-					p,
-					0,
-				)
+					this.doFumble(
+						p,
+						0,
+					)
 			);
 		}
 
@@ -3527,7 +3527,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			failedMatchups.length ===
-			0
+				0
 		) {
 			super.doTackle({
 				ydsFromScrimmage,
@@ -3537,22 +3537,22 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		const directMatchupChance =
 			ydsFromScrimmage <
-			0
+				0
 				? 0.88
 				: ydsFromScrimmage <
-					  2
+						2
 					? 0.72
 					: ydsFromScrimmage <
-						  7
+							7
 						? 0.38
 						: ydsFromScrimmage <
-							  15
+								15
 							? 0.12
 							: 0.04;
 
 		if (
 			Math.random() >=
-			directMatchupChance
+				directMatchupChance
 		) {
 			super.doTackle({
 				ydsFromScrimmage,
@@ -3562,7 +3562,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			Math.random() >=
-			0.9
+				0.9
 		) {
 			return;
 		}
@@ -3573,7 +3573,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				(candidate) =>
 					candidate
 						.weight **
-					2,
+						2,
 			).defender;
 
 		const tacklers =
@@ -3585,7 +3585,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			Math.random() <
-			0.25
+				0.25
 		) {
 			tacklers.add(
 				this.pickPlayer(
@@ -3602,7 +3602,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			tacklers,
 			loss:
 				ydsFromScrimmage <
-				0,
+					0,
 		});
 	}
 
@@ -3652,7 +3652,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					},
 				]) =>
 					type ===
-					"OL",
+						"OL",
 			);
 
 		const failedMatchups =
@@ -3678,7 +3678,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 					const strength =
 						slotIndex >=
-						0
+							0
 							? getPassRushMatchupStrength(
 									rusher,
 									slotIndex,
@@ -3692,7 +3692,7 @@ class GameSimFootballRealism extends GameSimFootball {
 						slotIndex === 4
 							? 1.15
 							: slotIndex <
-								  0
+									0
 								? 1.2
 								: 1;
 
@@ -3705,7 +3705,7 @@ class GameSimFootballRealism extends GameSimFootball {
 									0.05,
 									strength,
 								) *
-								matchupFactor,
+									matchupFactor,
 						},
 					];
 				},
@@ -3714,11 +3714,11 @@ class GameSimFootballRealism extends GameSimFootball {
 		const directMatchupChance =
 			this
 				.currentDefensivePlayConcept ===
-			"BLITZ"
+				"BLITZ"
 				? 0.75
 				: this
-							.currentDefensivePlayConcept ===
-					  "RUN_BLITZ"
+						.currentDefensivePlayConcept ===
+						"RUN_BLITZ"
 					? 0.82
 					: 0.92;
 
@@ -3745,7 +3745,7 @@ class GameSimFootballRealism extends GameSimFootball {
 						getPassRushFreeRusherStrength(
 							rusher,
 						) **
-						2,
+							2,
 				);
 		} else if (
 			failedMatchups.length >
@@ -3759,7 +3759,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					(candidate) =>
 						candidate
 							.weight **
-						2,
+							2,
 				);
 
 			p = matchup.rusher;
@@ -3811,7 +3811,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 				if (
 					lostBlockers.length >
-					0
+						0
 				) {
 					sackAllowedBlocker =
 						choice(
@@ -3918,7 +3918,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			current?.type !==
-			"pass"
+				"pass"
 		) {
 			return base;
 		}
@@ -3959,10 +3959,10 @@ class GameSimFootballRealism extends GameSimFootball {
 
 			freeRusherSackBoost =
 				1 -
-				(1 -
-					freeRusherSackBoost) *
 					(1 -
-						individualBoost);
+						freeRusherSackBoost) *
+						(1 -
+							individualBoost);
 		}
 
 		return helpers.bound(
@@ -3997,7 +3997,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			current?.type !==
-			"pass"
+				"pass"
 		) {
 			return base;
 		}
@@ -4053,7 +4053,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			current?.type !==
-			"pass"
+				"pass"
 		) {
 			return base;
 		}
@@ -4107,23 +4107,23 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			current?.type !==
-			"pass"
+				"pass"
 		) {
 			return base;
 		}
 
 		const multiplier =
 			current.concept ===
-			"QUICK_GAME"
+				"QUICK_GAME"
 				? 0.55
 				: current.concept ===
-					  "DEEP_SHOT"
+						"DEEP_SHOT"
 					? 1.2
 					: current.concept ===
-						  "PLAY_ACTION"
+							"PLAY_ACTION"
 						? 1.1
 						: current.concept ===
-							  "SCREEN"
+								"SCREEN"
 							? 0.35
 							: 1;
 
@@ -4234,9 +4234,9 @@ class GameSimFootballRealism extends GameSimFootball {
 				getPassRushFreeRusherStrength(
 					b,
 				) -
-				getPassRushFreeRusherStrength(
-					a,
-				),
+					getPassRushFreeRusherStrength(
+						a,
+					),
 		);
 
 		this.currentPassProtectionMatchups =
@@ -4320,10 +4320,10 @@ class GameSimFootballRealism extends GameSimFootball {
 			const ratio =
 				p.compositeRating
 					.passBlocking /
-				Math.max(
-					0.05,
-					opponentStrength,
-				);
+					Math.max(
+						0.05,
+						opponentStrength,
+					);
 
 			const helpBonus =
 				passProtectionHelpBonuses.get(
@@ -4348,7 +4348,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					type,
 					won:
 						Math.random() <
-						probWin,
+							probWin,
 				},
 			);
 		};
@@ -4497,10 +4497,10 @@ class GameSimFootballRealism extends GameSimFootball {
 							helpTarget
 								.compositeRating
 								.passBlocking /
-							Math.max(
-								0.05,
-								opponentStrength,
-							);
+								Math.max(
+									0.05,
+									opponentStrength,
+								);
 
 						const baselineRatio =
 							[
@@ -4512,7 +4512,7 @@ class GameSimFootballRealism extends GameSimFootball {
 							][
 								slotIndex
 							] ??
-							1;
+								1;
 
 						const rescueProbability =
 							helpers.bound(
@@ -4534,7 +4534,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 						if (
 							Math.random() <
-							rescueProbability
+								rescueProbability
 						) {
 							pbw.set(
 								helpTarget,
@@ -4558,8 +4558,8 @@ class GameSimFootballRealism extends GameSimFootball {
 			for (const p of te) {
 				if (
 					Math.random() <
-					conceptEffects
-						.teProtectionChance
+						conceptEffects
+							.teProtectionChance
 				) {
 					addExtraProtectionAttempt(
 						p,
@@ -4579,8 +4579,8 @@ class GameSimFootballRealism extends GameSimFootball {
 			for (const p of rb) {
 				if (
 					Math.random() <
-					conceptEffects
-						.rbProtectionChance
+						conceptEffects
+							.rbProtectionChance
 				) {
 					addExtraProtectionAttempt(
 						p,
@@ -4637,10 +4637,10 @@ class GameSimFootballRealism extends GameSimFootball {
 
 			freeRusherPressure =
 				1 -
-				(1 -
-					freeRusherPressure) *
 					(1 -
-						individualPressure);
+						freeRusherPressure) *
+						(1 -
+							individualPressure);
 		}
 
 		this.currentPassPressureLevel =
@@ -4705,19 +4705,19 @@ class GameSimFootballRealism extends GameSimFootball {
 
 			return (
 				dt +
-				this.doFumble(
-					qb,
-					yds,
-				)
+					this.doFumble(
+						qb,
+						yds,
+					)
 			);
 		}
 
 		if (
 			Math.random() <
-			this.probSack(
-				qb,
-				pbw,
-			)
+				this.probSack(
+					qb,
+					pbw,
+				)
 		) {
 			return this.doSack(
 				qb,
@@ -4731,12 +4731,44 @@ class GameSimFootballRealism extends GameSimFootball {
 					o
 				].QB?.[0],
 			) >
-			Math.random()
+				Math.random()
 		) {
 			return this.doRun(
 				true,
 			);
 		}
+
+		const getPassTargetCandidates = (
+			positions:
+				Array<
+					"WR" |
+					"TE" |
+					"RB"
+				>,
+			allowProtected:
+				boolean = false,
+		) =>
+			positions
+				.flatMap(
+					(pos) =>
+						this
+							.playersOnField[
+							o
+						][pos] ??
+							[],
+				)
+				.filter(
+					(candidate) =>
+						allowProtected ||
+						(
+							!passProtectors.has(
+								candidate,
+							) &&
+							!pbw.has(
+								candidate,
+							)
+						),
+				);
 
 		const pickTargetFromPositions = (
 			positions:
@@ -4746,25 +4778,55 @@ class GameSimFootballRealism extends GameSimFootball {
 					"RB"
 				>,
 		) => {
-			const candidates =
-				positions
-					.flatMap(
-						(pos) =>
-							this
-								.playersOnField[
-								o
-							][pos] ??
-							[],
-					)
-					.filter(
-						(candidate) =>
-							!passProtectors.has(
-								candidate,
-							) &&
-							!pbw.has(
-								candidate,
-							),
+			let candidates =
+				getPassTargetCandidates(
+					positions,
+				);
+
+			/*
+			 * If every preferred receiver stayed in protection,
+			 * allow one to release late as an outlet rather than
+			 * feeding choice() an empty array.
+			 */
+			if (
+				candidates.length ===
+					0
+			) {
+				candidates =
+					getPassTargetCandidates(
+						positions,
+						true,
 					);
+			}
+
+			/*
+			 * Catastrophic injuries or unusual old-save rosters can
+			 * leave the concept's preferred position group empty.
+			 * Fall back to any skill-position player on the field.
+			 */
+			if (
+				candidates.length ===
+					0
+			) {
+				candidates =
+					getPassTargetCandidates(
+						[
+							"WR",
+							"TE",
+							"RB",
+						],
+						true,
+					);
+			}
+
+			if (
+				candidates.length ===
+					0
+			) {
+				throw new Error(
+					"No eligible pass target on field",
+				);
+			}
 
 			return choice(
 				candidates,
@@ -4792,14 +4854,14 @@ class GameSimFootballRealism extends GameSimFootball {
 						],
 					)
 				: passConcept ===
-					  "SCREEN"
+						"SCREEN"
 					? pickTargetFromPositions(
 							[
 								"WR",
 							],
 						)
 					: passConcept ===
-						  "DEEP_SHOT"
+							"DEEP_SHOT"
 						? pickTargetFromPositions(
 								[
 									"WR",
@@ -4820,7 +4882,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			].RB?.includes(
 				target,
 			) ??
-			false;
+				false;
 
 		const rbFactor =
 			isRbTarget &&
@@ -4838,10 +4900,10 @@ class GameSimFootballRealism extends GameSimFootball {
 				o
 			].compositeRating
 				.passBlocking /
-			this.team[
-				d
-			].compositeRating
-				.passRushing;
+				this.team[
+					d
+				].compositeRating
+					.passRushing;
 
 		let meanYds:
 			number;
@@ -4851,7 +4913,7 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		if (
 			passConcept ===
-			"QUICK_GAME"
+				"QUICK_GAME"
 		) {
 			meanYds =
 				helpers.bound(
@@ -4865,7 +4927,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			spreadYds = 4.5;
 		} else if (
 			passConcept ===
-			"DEEP_SHOT"
+				"DEEP_SHOT"
 		) {
 			meanYds =
 				helpers.bound(
@@ -4879,7 +4941,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			spreadYds = 10;
 		} else if (
 			passConcept ===
-			"PLAY_ACTION"
+				"PLAY_ACTION"
 		) {
 			meanYds =
 				helpers.bound(
@@ -4893,7 +4955,7 @@ class GameSimFootballRealism extends GameSimFootball {
 			spreadYds = 8;
 		} else if (
 			passConcept ===
-			"SCREEN"
+				"SCREEN"
 		) {
 			const tackling =
 				Math.max(
@@ -5011,10 +5073,10 @@ class GameSimFootballRealism extends GameSimFootball {
 				"SCREEN"
 				? 9
 				: passConcept ===
-					  "DEEP_SHOT"
+						"DEEP_SHOT"
 					? 8
 					: passConcept ===
-						  "QUICK_GAME"
+							"QUICK_GAME"
 						? 7
 						: 6;
 
@@ -5024,7 +5086,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					target
 						.compositeRating
 						.speed -
-					0.5
+						0.5
 				) *
 					speedScale,
 			);
@@ -5034,23 +5096,23 @@ class GameSimFootballRealism extends GameSimFootball {
 				"SCREEN"
 				? 0.03
 				: passConcept ===
-					  "QUICK_GAME"
+						"QUICK_GAME"
 					? 0.02
 					: passConcept ===
-						  "DEEP_SHOT"
+							"DEEP_SHOT"
 						? 0.02
 						: 0.015;
 
 		if (
 			Math.random() <
-			target
-				.compositeRating
-				.speed *
-				speedExplosiveChance *
-				defensivePassEffects
-					.explosiveMultiplier *
-				passPressureEffects
-					.explosiveMultiplier
+				target
+					.compositeRating
+					.speed *
+					speedExplosiveChance *
+					defensivePassEffects
+						.explosiveMultiplier *
+					passPressureEffects
+						.explosiveMultiplier
 		) {
 			ydsRaw +=
 				randInt(
@@ -5087,17 +5149,17 @@ class GameSimFootballRealism extends GameSimFootball {
 		const defenderPositions:
 			Array<
 				"CB" |
-				"S" |
-				"LB"
+					"S" |
+					"LB"
 			> =
 			passConcept ===
-			"DEEP_SHOT"
+				"DEEP_SHOT"
 				? [
 						"CB",
 						"S",
 					]
 				: passConcept ===
-					  "SCREEN"
+						"SCREEN"
 					? [
 							"LB",
 							"CB",
@@ -5109,15 +5171,52 @@ class GameSimFootballRealism extends GameSimFootball {
 							"LB",
 						];
 
-		const defenderCandidates =
+		let defenderCandidates =
 			defenderPositions.flatMap(
 				(pos) =>
 					this
 						.playersOnField[
 						d
 					][pos] ??
-					[],
+						[],
 			);
+
+		if (
+			defenderCandidates.length ===
+				0
+		) {
+			const fallbackDefenderPositions:
+				Array<
+					"CB" |
+						"S" |
+						"LB" |
+						"DL"
+				> = [
+					"CB",
+					"S",
+					"LB",
+					"DL",
+				];
+
+			defenderCandidates =
+				fallbackDefenderPositions.flatMap(
+					(pos) =>
+						this
+							.playersOnField[
+							d
+						][pos] ??
+							[],
+				);
+		}
+
+		if (
+			defenderCandidates.length ===
+				0
+		) {
+			throw new Error(
+				"No coverage defender on field",
+			);
+		}
 
 		const defender =
 			choice(
@@ -5131,18 +5230,18 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		const complete =
 			Math.random() <
-			this.probComplete(
-				qb,
-				target,
-				defender,
-			);
+				this.probComplete(
+					qb,
+					target,
+					defender,
+				);
 
 		const interception =
 			Math.random() <
-			this.probInt(
-				qb,
-				defender,
-			);
+				this.probInt(
+					qb,
+					defender,
+				);
 
 		this.checkPenalties(
 			"pass",
@@ -5153,7 +5252,7 @@ class GameSimFootballRealism extends GameSimFootball {
 					yds,
 				incompletePass:
 					!complete &&
-					!interception,
+						!interception,
 			},
 		);
 
@@ -5175,7 +5274,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				Math.abs(
 					yds,
 				) /
-				20;
+					20;
 
 			if (complete) {
 				const {
@@ -5229,10 +5328,10 @@ class GameSimFootballRealism extends GameSimFootball {
 
 					return (
 						dt +
-						this.doFumble(
-							target,
-							0,
-						)
+							this.doFumble(
+								target,
+								0,
+							)
 					);
 				}
 
@@ -5289,7 +5388,7 @@ class GameSimFootballRealism extends GameSimFootball {
 						"pssInc",
 					defender:
 						Math.random() <
-						0.28
+							0.28
 							? defender
 							: undefined,
 				});
