@@ -8,6 +8,8 @@ import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
 import {
 	getPassPressureLevel,
+	getPassProtectionHelpFactor,
+	getPassProtectionHelpTarget,
 	getPassRushFreeRusherStrength,
 	getPassRushMatchupStrength,
 	getPassRushPlan,
@@ -3866,6 +3868,56 @@ class GameSimFootballRealism extends GameSimFootball {
 		this.currentPassProtectionMatchups =
 			passProtectionMatchups;
 
+		const passProtectionHelpBonuses =
+			new Map<
+				PlayerGameSim,
+				number
+			>();
+
+		const addProtectionHelp = (
+			blocker: PlayerGameSim,
+			helper: PlayerGameSim,
+		) => {
+			const previous =
+				passProtectionHelpBonuses.get(
+					blocker,
+				) ?? 0;
+
+			passProtectionHelpBonuses.set(
+				blocker,
+				Math.min(
+					0.28,
+					previous +
+						getPassProtectionHelpFactor(
+							helper,
+						),
+				),
+			);
+		};
+
+		for (
+			const [
+				blocker,
+				helpersForBlocker,
+			] of passRushPlan
+				.helpAssignments
+		) {
+			for (
+				const helper of
+					helpersForBlocker
+			) {
+				addProtectionHelp(
+					blocker,
+					helper,
+				);
+			}
+		}
+
+		const passProtectors =
+			new Set<
+				PlayerGameSim
+			>();
+
 		const addBlockAttempt = (
 			p: PlayerGameSim,
 			type:
@@ -3899,15 +3951,21 @@ class GameSimFootballRealism extends GameSimFootball {
 					opponentStrength,
 				);
 
+			const helpBonus =
+				passProtectionHelpBonuses.get(
+					p,
+				) ?? 0;
+
 			const probWin =
 				helpers.bound(
 					(ratio -
 						baselineRatio) *
 						(0.45 /
 							0.25) +
-						0.5,
+						0.5 +
+						helpBonus,
 					0,
-					0.96,
+					0.98,
 				);
 
 			pbw.set(
@@ -3971,9 +4029,14 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		const addExtraProtectionAttempt = (
 			p: PlayerGameSim,
+			type: "TE" | "RB",
 			baselineRatio:
 				number,
 		) => {
+			passProtectors.add(
+				p,
+			);
+
 			const extraRusher =
 				unaccountedExtraRushers.shift();
 
@@ -3991,12 +4054,115 @@ class GameSimFootballRealism extends GameSimFootball {
 						extraRusher,
 					),
 				);
-			} else {
-				addBlockAttempt(
+
+				return;
+			}
+
+			const helpTarget =
+				getPassProtectionHelpTarget(
+					this.playersOnField[
+						o
+					],
+					passProtectionMatchups,
 					p,
-					"Other",
-					baselineRatio,
+					type,
 				);
+
+			if (helpTarget) {
+				addProtectionHelp(
+					helpTarget,
+					p,
+				);
+
+				const existingResult =
+					pbw.get(
+						helpTarget,
+					);
+
+				if (existingResult) {
+					const defender =
+						passProtectionMatchups.get(
+							helpTarget,
+						);
+
+					const ol =
+						this.playersOnField[
+							o
+						].OL ?? [];
+
+					const slotIndex =
+						ol.indexOf(
+							helpTarget,
+						);
+
+					if (
+						defender &&
+						slotIndex >=
+							0
+					) {
+						const teamPassRushing =
+							this.team[
+								d
+							]
+								.compositeRating
+								.passRushing;
+
+						const opponentStrength =
+							0.35 *
+								teamPassRushing +
+							0.65 *
+								getPassRushMatchupStrength(
+									defender,
+									slotIndex,
+								);
+
+						const ratio =
+							helpTarget
+								.compositeRating
+								.passBlocking /
+							Math.max(
+								0.05,
+								opponentStrength,
+							);
+
+						const baselineRatio =
+							[
+								1.03,
+								0.99,
+								0.98,
+								0.99,
+								1.02,
+							][
+								slotIndex
+							] ??
+							1;
+
+						const probWin =
+							helpers.bound(
+								(ratio -
+									baselineRatio) *
+									(0.45 /
+										0.25) +
+									0.5 +
+									(passProtectionHelpBonuses.get(
+										helpTarget,
+									) ??
+										0),
+								0,
+								0.98,
+							);
+
+						pbw.set(
+							helpTarget,
+							{
+								...existingResult,
+								won:
+									Math.random() <
+									probWin,
+							},
+						);
+					}
+				}
 			}
 		};
 
@@ -4014,6 +4180,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				) {
 					addExtraProtectionAttempt(
 						p,
+						"TE",
 						0.75,
 					);
 				}
@@ -4034,6 +4201,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				) {
 					addExtraProtectionAttempt(
 						p,
+						"RB",
 						0.5,
 					);
 				}
@@ -4207,6 +4375,9 @@ class GameSimFootballRealism extends GameSimFootball {
 					)
 					.filter(
 						(candidate) =>
+							!passProtectors.has(
+								candidate,
+							) &&
 							!pbw.has(
 								candidate,
 							),
