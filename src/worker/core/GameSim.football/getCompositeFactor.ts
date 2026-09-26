@@ -937,6 +937,186 @@ export const getRunStopMatchupStrength = (
 	);
 };
 
+/*
+ * RUN-PLAY DISRUPTION
+ *
+ * Winning or losing a block already affects the aggregate
+ * rushing result. This helper goes one step further and asks
+ * how damaging the failed blocks were to the actual concept.
+ *
+ * A failed center/guard block matters more on Inside Zone or
+ * Power than it does on Jet Sweep. A failed tackle block is
+ * more dangerous on Outside Zone. Extra TE/RB/WR blockers
+ * use the same concept-specific importance weights as the
+ * rest of the rushing engine.
+ *
+ * The result is a 0-to-1 disruption level. It is intended to
+ * represent penetration and lane destruction, not a second
+ * sack-style binary outcome.
+ */
+export type RunBlockingResult =
+	PassBlockingResult;
+
+export const getRunDisruptionLevel = (
+	offense: PlayersOnField,
+	results: Map<
+		PlayerGameSim,
+		RunBlockingResult
+	>,
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>,
+	concept: RunConcept,
+	teamRunStopping: number,
+): number => {
+	const ol =
+		offense.OL ?? [];
+
+	const te =
+		offense.TE ?? [];
+
+	const rb =
+		offense.RB ?? [];
+
+	const wr =
+		offense.WR ?? [];
+
+	let weightedDisruption = 0;
+	let totalWeight = 0;
+
+	for (
+		const [
+			blocker,
+			result,
+		] of results
+	) {
+		const slotIndex =
+			result.type ===
+				"OL"
+				? ol.indexOf(
+						blocker,
+					)
+				: -1;
+
+		let weight:
+			number;
+
+		if (slotIndex >= 0) {
+			weight =
+				getRunBlockSlotWeight(
+					concept,
+					slotIndex,
+				);
+		} else if (
+			te.includes(
+				blocker,
+			)
+		) {
+			weight =
+				getRunExtraBlockWeight(
+					concept,
+					"TE",
+				);
+		} else if (
+			rb.includes(
+				blocker,
+			)
+		) {
+			weight =
+				getRunExtraBlockWeight(
+					concept,
+					"RB",
+				);
+		} else if (
+			wr.includes(
+				blocker,
+			)
+		) {
+			weight =
+				getRunExtraBlockWeight(
+					concept,
+					"WR",
+				);
+		} else {
+			weight = 0.25;
+		}
+
+		totalWeight +=
+			weight;
+
+		if (result.won) {
+			continue;
+		}
+
+		let opponentStrength =
+			Math.max(
+				0.05,
+				teamRunStopping,
+			);
+
+		if (slotIndex >= 0) {
+			const defender =
+				matchups.get(
+					blocker,
+				);
+
+			if (defender) {
+				opponentStrength =
+					0.35 *
+						opponentStrength +
+					0.65 *
+						getRunStopMatchupStrength(
+							defender,
+							slotIndex,
+						);
+			}
+		}
+
+		const blockerStrength =
+			Math.max(
+				0.05,
+				blocker
+					.compositeRating
+					.runBlocking,
+			);
+
+		const matchupRatio =
+			opponentStrength /
+			blockerStrength;
+
+		const severity =
+			Math.min(
+				1.4,
+				Math.max(
+					0.4,
+					0.65 +
+						(matchupRatio -
+							1) *
+							0.8,
+				),
+			);
+
+		weightedDisruption +=
+			weight *
+			severity;
+	}
+
+	if (totalWeight <= 0) {
+		return 0;
+	}
+
+	return Math.min(
+		1,
+		Math.max(
+			0,
+			(weightedDisruption /
+				totalWeight) *
+				1.8,
+		),
+	);
+};
+
 type MatchupStrengthFunction = (
 	p: PlayerGameSim,
 	blockerSlot: number,
