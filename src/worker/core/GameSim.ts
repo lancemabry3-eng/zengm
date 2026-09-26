@@ -4,7 +4,7 @@ import { bySport } from "../../common/sportFunctions.ts";
 import { g, helpers } from "../util/index.ts";
 import type { FunctionalRole } from "./player/roleOvr.football.ts";
 import GameSimBaseball from "./GameSim.baseball/index.ts";
-import GameSimBasketball from "/GameSim.basketball/index.ts";
+import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
 import {
 	getPassPressureLevel,
