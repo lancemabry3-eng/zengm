@@ -115,47 +115,23 @@ export const getCompositeFactor = (
  * 2 = C
  * 3 = RG
  * 4 = RT
- *
- * The old blocking calculation re-sorted every blocker by
- * generic OL OVR. That meant a player's actual spot on the
- * offensive line did not matter.
- *
- * These weights preserve the five-man line and make each
- * position contribute differently.
  */
 
 const PASS_BLOCKING_WEIGHTS = [
-	4.5, // LT
-	3.25, // LG
-	2.75, // C
-	3.25, // RG
-	4.25, // RT
+	4.5,
+	3.25,
+	2.75,
+	3.25,
+	4.25,
 ];
 
 const RUN_BLOCKING_WEIGHTS = [
-	3, // LT
-	4, // LG
-	4, // C
-	4, // RG
-	3, // RT
+	3,
+	4,
+	4,
+	4,
+	3,
 ];
-
-/*
- * Keep the same total main-line weight as Football GM's
- * original blocking formula.
- *
- * Original:
- * 5 + 4 + 3 + 3 + 3 = 18
- *
- * New pass blocking:
- * 4.5 + 3.25 + 2.75 + 3.25 + 4.25 = 18
- *
- * New run blocking:
- * 3 + 4 + 4 + 4 + 3 = 18
- *
- * This helps preserve overall statistical balance while
- * changing where the blocking value comes from.
- */
 
 const BLOCKING_BONUS_WEIGHTS = [
 	1,
@@ -984,17 +960,14 @@ export const getRunDisruptionLevel = (
 	);
 };
 
-/*
- * PASS-RUSH PARTICIPATION
- *
- * Normal coverage calls send four.
- * BLITZ sends six.
- * RUN_BLITZ sends five.
- */
 export type PassRushPlan = {
 	matchups: Map<
 		PlayerGameSim,
 		PlayerGameSim
+	>;
+	helpAssignments: Map<
+		PlayerGameSim,
+		PlayerGameSim[]
 	>;
 	extraRushers: PlayerGameSim[];
 	rushers: PlayerGameSim[];
@@ -1286,6 +1259,277 @@ const buildOlMatchups = (
 	return matchups;
 };
 
+const getPassProtectionNeedScore = (
+	blocker: PlayerGameSim,
+	rusher: PlayerGameSim,
+	blockerSlot: number,
+): number => {
+	const rusherStrength =
+		getPassRushMatchupStrength(
+			rusher,
+			blockerSlot,
+		);
+
+	const blockerStrength =
+		Math.max(
+			0.05,
+			blocker
+				.compositeRating
+				.passBlocking,
+		);
+
+	return (
+		rusherStrength /
+		blockerStrength
+	);
+};
+
+export const getPassProtectionHelpFactor = (
+	helper: PlayerGameSim,
+): number => {
+	const rawBlocking =
+		Math.max(
+			0.05,
+			helper
+				.compositeRating
+				.passBlocking,
+		);
+
+	const olOvr =
+		Math.max(
+			0,
+			helper.ovrs.OL ??
+				0,
+		) /
+		100;
+
+	const helperSkill =
+		olOvr > 0
+			? rawBlocking *
+					0.7 +
+				olOvr *
+					0.3
+			: rawBlocking;
+
+	return Math.min(
+		0.18,
+		Math.max(
+			0.04,
+			0.03 +
+				0.15 *
+					helperSkill,
+		),
+	);
+};
+
+export const getPassProtectionHelpTarget = (
+	offense: PlayersOnField,
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>,
+	helper: PlayerGameSim,
+	type: "OL" | "TE" | "RB",
+): PlayerGameSim | undefined => {
+	const ol =
+		offense.OL ?? [];
+
+	let candidates =
+		Array.from(
+			matchups.keys(),
+		).filter(
+			(blocker) =>
+				ol.includes(
+					blocker,
+				),
+		);
+
+	if (
+		candidates.length ===
+		0
+	) {
+		return undefined;
+	}
+
+	const helperSlot =
+		ol.indexOf(
+			helper,
+		);
+
+	if (
+		type === "OL" &&
+		helperSlot >= 0
+	) {
+		const adjacent =
+			candidates.filter(
+				(blocker) => {
+					const slot =
+						ol.indexOf(
+							blocker,
+						);
+
+					return (
+						slot >=
+							0 &&
+						Math.abs(
+							slot -
+								helperSlot,
+						) <=
+							1
+					);
+				},
+			);
+
+		if (
+			adjacent.length >
+			0
+		) {
+			candidates =
+				adjacent;
+		}
+	} else if (
+		type === "TE"
+	) {
+		const edge =
+			candidates.filter(
+				(blocker) => {
+					const slot =
+						ol.indexOf(
+							blocker,
+						);
+
+					return (
+						slot ===
+							0 ||
+						slot ===
+							4
+					);
+				},
+			);
+
+		if (
+			edge.length >
+			0
+		) {
+			candidates =
+				edge;
+		}
+	}
+
+	let bestBlocker:
+		| PlayerGameSim
+		| undefined;
+
+	let bestNeed =
+		-Infinity;
+
+	for (
+		const blocker of
+			candidates
+	) {
+		const rusher =
+			matchups.get(
+				blocker,
+			);
+
+		if (!rusher) {
+			continue;
+		}
+
+		const blockerSlot =
+			ol.indexOf(
+				blocker,
+			);
+
+		if (
+			blockerSlot <
+			0
+		) {
+			continue;
+		}
+
+		const need =
+			getPassProtectionNeedScore(
+				blocker,
+				rusher,
+				blockerSlot,
+			);
+
+		if (
+			need >
+			bestNeed
+		) {
+			bestNeed =
+				need;
+
+			bestBlocker =
+				blocker;
+		}
+	}
+
+	return bestBlocker;
+};
+
+const buildPassProtectionHelpAssignments = (
+	offense: PlayersOnField,
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>,
+): Map<
+	PlayerGameSim,
+	PlayerGameSim[]
+> => {
+	const assignments =
+		new Map<
+			PlayerGameSim,
+			PlayerGameSim[]
+		>();
+
+	const ol =
+		offense.OL ?? [];
+
+	for (
+		const helper of ol
+	) {
+		if (
+			matchups.has(
+				helper,
+			)
+		) {
+			continue;
+		}
+
+		const target =
+			getPassProtectionHelpTarget(
+				offense,
+				matchups,
+				helper,
+				"OL",
+			);
+
+		if (!target) {
+			continue;
+		}
+
+		const helpers =
+			assignments.get(
+				target,
+			) ?? [];
+
+		helpers.push(
+			helper,
+		);
+
+		assignments.set(
+			target,
+			helpers,
+		);
+	}
+
+	return assignments;
+};
+
 const buildPassRushMatchups = (
 	offense: PlayersOnField,
 	rushers: PlayerGameSim[],
@@ -1505,17 +1749,20 @@ export const getPassRushPlan = (
 			rushers,
 		);
 
+	const helpAssignments =
+		buildPassProtectionHelpAssignments(
+			offense,
+			matchups,
+		);
+
 	return {
 		matchups,
+		helpAssignments,
 		extraRushers,
 		rushers,
 	};
 };
 
-/*
- * Keep the old helper available until the live simulator
- * switches over to the full concept-aware rush plan.
- */
 export const getPassProtectionMatchups = (
 	offense: PlayersOnField,
 	defense: PlayersOnField,
