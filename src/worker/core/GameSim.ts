@@ -7,6 +7,7 @@ import GameSimBaseball from "./GameSim.baseball/index.ts";
 import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
 import {
+	getPassPressureLevel,
 	getPassProtectionMatchups,
 	getPassRushMatchupStrength,
 	getRunBlockingMatchups,
@@ -914,6 +915,174 @@ const getPassConceptEffects = (
 	};
 };
 
+type PassPressureEffects = {
+	completionMultiplier: number;
+	interceptionMultiplier: number;
+	scrambleMultiplier: number;
+	yardageMultiplier: number;
+	explosiveMultiplier: number;
+};
+
+const getEffectivePassPressure = (
+	qb: PlayerGameSim,
+	rawPressure: number,
+): number => {
+	const poise =
+		(
+			qb.compositeRating
+				.passingVision +
+			qb.compositeRating
+				.avoidingSacks
+		) /
+		2;
+
+	return helpers.bound(
+		rawPressure *
+			(
+				1.15 -
+				0.3 *
+					poise
+			),
+		0,
+		1,
+	);
+};
+
+const getPassPressureEffects = (
+	concept: PassConcept,
+	pressureLevel: number,
+): PassPressureEffects => {
+	const pressure =
+		helpers.bound(
+			pressureLevel,
+			0,
+			1,
+		);
+
+	if (concept === "QUICK_GAME") {
+		return {
+			completionMultiplier:
+				1 -
+				0.1 *
+					pressure,
+			interceptionMultiplier:
+				1 +
+				0.08 *
+					pressure,
+			scrambleMultiplier:
+				1 +
+				0.55 *
+					pressure,
+			yardageMultiplier:
+				1 -
+				0.04 *
+					pressure,
+			explosiveMultiplier:
+				1 -
+				0.08 *
+					pressure,
+		};
+	}
+
+	if (concept === "DEEP_SHOT") {
+		return {
+			completionMultiplier:
+				1 -
+				0.24 *
+					pressure,
+			interceptionMultiplier:
+				1 +
+				0.28 *
+					pressure,
+			scrambleMultiplier:
+				1 +
+				1 *
+					pressure,
+			yardageMultiplier:
+				1 -
+				0.18 *
+					pressure,
+			explosiveMultiplier:
+				1 -
+				0.28 *
+					pressure,
+		};
+	}
+
+	if (concept === "PLAY_ACTION") {
+		return {
+			completionMultiplier:
+				1 -
+				0.18 *
+					pressure,
+			interceptionMultiplier:
+				1 +
+				0.18 *
+					pressure,
+			scrambleMultiplier:
+				1 +
+				0.85 *
+					pressure,
+			yardageMultiplier:
+				1 -
+				0.12 *
+					pressure,
+			explosiveMultiplier:
+				1 -
+				0.18 *
+					pressure,
+		};
+	}
+
+	if (concept === "SCREEN") {
+		return {
+			completionMultiplier:
+				1 -
+				0.06 *
+					pressure,
+			interceptionMultiplier:
+				1 +
+				0.04 *
+					pressure,
+			scrambleMultiplier:
+				1 +
+				0.25 *
+					pressure,
+			yardageMultiplier:
+				1 -
+				0.02 *
+					pressure,
+			explosiveMultiplier:
+				1 -
+				0.04 *
+					pressure,
+		};
+	}
+
+	return {
+		completionMultiplier:
+			1 -
+			0.16 *
+				pressure,
+		interceptionMultiplier:
+			1 +
+			0.18 *
+				pressure,
+		scrambleMultiplier:
+			1 +
+			0.75 *
+				pressure,
+		yardageMultiplier:
+			1 -
+			0.09 *
+				pressure,
+		explosiveMultiplier:
+			1 -
+			0.14 *
+				pressure,
+	};
+};
+
 const getRunConceptExecutionModifiers = (
 	team: TeamGameSim,
 	concept: RunConcept,
@@ -1604,6 +1773,8 @@ const getDefensiveScrambleYardsMultiplier = (
 };
 
 class GameSimFootballRealism extends GameSimFootball {
+	currentPassPressureLevel = 0;
+
 	currentPassProtectionMatchups:
 		| Map<PlayerGameSim, PlayerGameSim>
 		| undefined;
@@ -1637,6 +1808,9 @@ class GameSimFootballRealism extends GameSimFootball {
 		let personnelForConcept:
 			| OffensivePersonnel
 			| undefined;
+
+		this.currentPassPressureLevel =
+			0;
 
 		this.currentPassProtectionMatchups =
 			undefined;
@@ -3106,11 +3280,23 @@ class GameSimFootballRealism extends GameSimFootball {
 				current.concept,
 			);
 
+		const pressureEffects =
+			getPassPressureEffects(
+				current.concept,
+				getEffectivePassPressure(
+					qb,
+					this
+						.currentPassPressureLevel,
+				),
+			);
+
 		return helpers.bound(
 			base *
 				effects
 					.completionMultiplier *
 				defensiveEffects
+					.completionMultiplier *
+				pressureEffects
 					.completionMultiplier,
 			0,
 			0.98,
@@ -3150,11 +3336,23 @@ class GameSimFootballRealism extends GameSimFootball {
 				current.concept,
 			);
 
+		const pressureEffects =
+			getPassPressureEffects(
+				current.concept,
+				getEffectivePassPressure(
+					qb,
+					this
+						.currentPassPressureLevel,
+				),
+			);
+
 		return helpers.bound(
 			base *
 				effects
 					.interceptionMultiplier *
 				defensiveEffects
+					.interceptionMultiplier *
+				pressureEffects
 					.interceptionMultiplier,
 			0,
 			0.2,
@@ -3202,10 +3400,25 @@ class GameSimFootballRealism extends GameSimFootball {
 				current.concept,
 			);
 
+		const pressureEffects =
+			getPassPressureEffects(
+				current.concept,
+				qb
+					? getEffectivePassPressure(
+							qb,
+							this
+								.currentPassPressureLevel,
+						)
+					: this
+							.currentPassPressureLevel,
+			);
+
 		return helpers.bound(
 			base *
 				multiplier *
 				defensiveEffects
+					.scrambleMultiplier *
+				pressureEffects
 					.scrambleMultiplier,
 			0,
 			0.6,
@@ -3421,6 +3634,29 @@ class GameSimFootballRealism extends GameSimFootball {
 			this.getTopPlayerOnField(
 				o,
 				"QB",
+			);
+
+		this.currentPassPressureLevel =
+			getPassPressureLevel(
+				this.playersOnField[
+					o
+				],
+				pbw,
+				passProtectionMatchups,
+				this.team[
+					d
+				].compositeRating
+					.passRushing,
+			);
+
+		const passPressureEffects =
+			getPassPressureEffects(
+				passConcept,
+				getEffectivePassPressure(
+					qb,
+					this
+						.currentPassPressureLevel,
+				),
 			);
 
 		this.currentPlay.addEvent({
@@ -3685,6 +3921,8 @@ class GameSimFootballRealism extends GameSimFootball {
 			helpers.bound(
 				meanYds *
 					defensivePassEffects
+						.yardageMultiplier *
+					passPressureEffects
 						.yardageMultiplier,
 				-5,
 				100,
@@ -3708,6 +3946,8 @@ class GameSimFootballRealism extends GameSimFootball {
 					.passingDeep *
 					0.08 *
 					defensivePassEffects
+						.explosiveMultiplier *
+					passPressureEffects
 						.explosiveMultiplier
 		) {
 			ydsRaw +=
@@ -3723,6 +3963,8 @@ class GameSimFootballRealism extends GameSimFootball {
 					.passingDeep *
 					0.04 *
 					defensivePassEffects
+						.explosiveMultiplier *
+					passPressureEffects
 						.explosiveMultiplier
 		) {
 			ydsRaw +=
@@ -3738,6 +3980,8 @@ class GameSimFootballRealism extends GameSimFootball {
 					.passingDeep *
 					0.02 *
 					defensivePassEffects
+						.explosiveMultiplier *
+					passPressureEffects
 						.explosiveMultiplier
 		) {
 			ydsRaw +=
@@ -3789,6 +4033,8 @@ class GameSimFootballRealism extends GameSimFootball {
 				.speed *
 				speedExplosiveChance *
 				defensivePassEffects
+					.explosiveMultiplier *
+				passPressureEffects
 					.explosiveMultiplier
 		) {
 			ydsRaw +=
