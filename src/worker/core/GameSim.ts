@@ -1378,6 +1378,235 @@ const getRunConceptExecutionModifiers = (
 	};
 };
 
+const RUN_CARRIER_ROLES: Record<
+	RunConcept,
+	FunctionalRole[]
+> = {
+	INSIDE_ZONE: [
+		"RB_FEATURE",
+		"RB_POWER",
+	],
+	OUTSIDE_ZONE: [
+		"RB_FEATURE",
+		"RB_RECEIVING",
+	],
+	POWER: [
+		"RB_POWER",
+		"RB_SHORT_YARDAGE",
+	],
+	COUNTER: [
+		"RB_FEATURE",
+		"RB_POWER",
+	],
+	DRAW: [
+		"RB_THIRD_DOWN",
+		"RB_RECEIVING",
+	],
+};
+
+const getRunCarrierWeight = (
+	p: PlayerGameSim,
+	concept: RunConcept,
+): number => {
+	let bestRoleScore:
+		| number
+		| undefined;
+
+	for (
+		const role of
+			RUN_CARRIER_ROLES[
+				concept
+			]
+	) {
+		const score =
+			p.roleOvrs?.[
+				role
+			];
+
+		if (
+			score !== undefined &&
+			(bestRoleScore ===
+				undefined ||
+				score >
+					bestRoleScore)
+		) {
+			bestRoleScore =
+				score;
+		}
+	}
+
+	const roleFactor =
+		bestRoleScore ===
+		undefined
+			? 1
+			: helpers.bound(
+					0.75 +
+						(bestRoleScore /
+							100) *
+							0.75,
+					0.75,
+					1.5,
+				);
+
+	const rushing =
+		Math.max(
+			0.05,
+			p.compositeRating
+				.rushing,
+		);
+
+	const energy =
+		helpers.bound(
+			p.stat.energy ?? 1,
+			0.25,
+			1,
+		);
+
+	return (
+		rushing ** 1.5 *
+		roleFactor *
+		energy
+	);
+};
+
+type RunConceptEffects = {
+	meanMultiplier: number;
+	spreadYds: number;
+	minYds: number;
+	maxYds: number;
+	explosiveChance: number;
+	explosiveMax: number;
+	teBlockChance: number;
+	extraRbBlockChance: number;
+	olBaselines: number[];
+	clockMin: number;
+	clockMax: number;
+};
+
+const getRunConceptEffects = (
+	concept: RunConcept,
+): RunConceptEffects => {
+	if (
+		concept ===
+		"INSIDE_ZONE"
+	) {
+		return {
+			meanMultiplier: 1.02,
+			spreadYds: 4.5,
+			minYds: -4,
+			maxYds: 15,
+			explosiveChance: 0.006,
+			explosiveMax: 35,
+			teBlockChance: 0.78,
+			extraRbBlockChance: 0.25,
+			olBaselines: [
+				1,
+				0.98,
+				0.96,
+				0.98,
+				1,
+			],
+			clockMin: 2,
+			clockMax: 4,
+		};
+	}
+
+	if (
+		concept ===
+		"OUTSIDE_ZONE"
+	) {
+		return {
+			meanMultiplier: 0.98,
+			spreadYds: 6.5,
+			minYds: -5,
+			maxYds: 18,
+			explosiveChance: 0.014,
+			explosiveMax: 55,
+			teBlockChance: 0.65,
+			extraRbBlockChance: 0.2,
+			olBaselines: [
+				0.98,
+				1.01,
+				1.03,
+				1.01,
+				0.98,
+			],
+			clockMin: 2,
+			clockMax: 4,
+		};
+	}
+
+	if (
+		concept ===
+		"POWER"
+	) {
+		return {
+			meanMultiplier: 1.04,
+			spreadYds: 3.8,
+			minYds: -3,
+			maxYds: 12,
+			explosiveChance: 0.004,
+			explosiveMax: 25,
+			teBlockChance: 0.9,
+			extraRbBlockChance: 0.65,
+			olBaselines: [
+				1.01,
+				0.97,
+				0.98,
+				0.97,
+				1.01,
+			],
+			clockMin: 3,
+			clockMax: 5,
+		};
+	}
+
+	if (
+		concept ===
+		"COUNTER"
+	) {
+		return {
+			meanMultiplier: 1,
+			spreadYds: 6,
+			minYds: -5,
+			maxYds: 18,
+			explosiveChance: 0.012,
+			explosiveMax: 50,
+			teBlockChance: 0.8,
+			extraRbBlockChance: 0.4,
+			olBaselines: [
+				1.02,
+				0.97,
+				1,
+				0.97,
+				1.02,
+			],
+			clockMin: 3,
+			clockMax: 5,
+		};
+	}
+
+	return {
+		meanMultiplier: 0.95,
+		spreadYds: 7,
+		minYds: -5,
+		maxYds: 20,
+		explosiveChance: 0.015,
+		explosiveMax: 45,
+		teBlockChance: 0.4,
+		extraRbBlockChance: 0.1,
+		olBaselines: [
+			1.02,
+			1,
+			1,
+			1,
+			1.02,
+		],
+		clockMin: 2,
+		clockMax: 4,
+	};
+};
+
 /*
  * Football realism layer.
  *
@@ -1861,13 +2090,6 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		this.updateTeamCompositeRatings();
 
-		/*
-		 * Run concepts alter the efficiency of the blocking
-		 * structure attacking the defense.
-		 *
-		 * The next call to updateTeamCompositeRatings resets
-		 * these values, so modifiers never accumulate.
-		 */
 		if (
 			this.currentOffensivePlayConcept
 				?.type ===
@@ -1897,6 +2119,481 @@ class GameSimFootballRealism extends GameSimFootball {
 				modifiers
 					.defenseRunStopping;
 		}
+	}
+
+	doRun(
+		qbScramble:
+			boolean = false,
+	) {
+		const o = this.o;
+		const d = this.d;
+
+		let runConcept:
+			| RunConcept
+			| undefined;
+
+		if (!qbScramble) {
+			this.updatePlayersOnField(
+				"run",
+			);
+
+			const penInfo =
+				this.checkPenalties(
+					"beforeSnap",
+				);
+
+			if (penInfo) {
+				return 0;
+			}
+
+			runConcept =
+				this
+					.currentOffensivePlayConcept
+					?.type ===
+				"run"
+					? this
+							.currentOffensivePlayConcept
+							.concept
+					: "INSIDE_ZONE";
+		}
+
+		const runEffects =
+			runConcept !==
+			undefined
+				? getRunConceptEffects(
+						runConcept,
+					)
+				: undefined;
+
+		const rbCounts = {
+			aOL: 0,
+			aOther: 0,
+			wOL: 0,
+			wOther: 0,
+		};
+
+		let rbw:
+			| Map<
+					PlayerGameSim,
+					{
+						type:
+							| "OL"
+							| "Other";
+						won: boolean;
+					}
+			  >
+			| undefined;
+
+		let p: PlayerGameSim;
+
+		if (qbScramble) {
+			p =
+				this.getTopPlayerOnField(
+					o,
+					"QB",
+				);
+		} else {
+			const rbs =
+				this.playersOnField[
+					o
+				].RB ?? [];
+
+			if (
+				rbs.length > 0 &&
+				runConcept !==
+					undefined
+			) {
+				p =
+					choice(
+						rbs,
+						(candidate) =>
+							getRunCarrierWeight(
+								candidate,
+								runConcept!,
+							),
+					);
+			} else {
+				p =
+					this.getTopPlayerOnField(
+						o,
+						"QB",
+					);
+			}
+		}
+
+		if (
+			!qbScramble &&
+			runEffects
+		) {
+			rbw = new Map();
+
+			const addBlockAttempt = (
+				blocker:
+					PlayerGameSim,
+				type:
+					| "OL"
+					| "Other",
+				baselineRatio:
+					number,
+			) => {
+				const ratio =
+					blocker
+						.compositeRating
+						.runBlocking /
+					this.team[d]
+						.compositeRating
+						.runStopping;
+
+				const probWin =
+					helpers.bound(
+						(ratio -
+							baselineRatio) *
+							(0.65 /
+								0.25) +
+							0.3,
+						0,
+						0.96,
+					);
+
+				const won =
+					Math.random() <
+					probWin;
+
+				rbw!.set(
+					blocker,
+					{
+						type,
+						won,
+					},
+				);
+
+				rbCounts[
+					`a${type}`
+				] += 1;
+
+				if (won) {
+					rbCounts[
+						`w${type}`
+					] += 1;
+				}
+			};
+
+			const ol =
+				this.playersOnField[
+					o
+				].OL;
+
+			if (ol) {
+				for (
+					let i = 0;
+					i < ol.length;
+					i++
+				) {
+					addBlockAttempt(
+						ol[i]!,
+						"OL",
+						runEffects
+							.olBaselines[
+							i
+						] ?? 1,
+					);
+				}
+			}
+
+			const te =
+				this.playersOnField[
+					o
+				].TE;
+
+			if (te) {
+				for (
+					const blocker of
+						te
+				) {
+					if (
+						blocker !== p &&
+						Math.random() <
+							runEffects
+								.teBlockChance
+					) {
+						addBlockAttempt(
+							blocker,
+							"Other",
+							0.85,
+						);
+					}
+				}
+			}
+
+			const rb =
+				this.playersOnField[
+					o
+				].RB;
+
+			if (rb) {
+				for (
+					const blocker of
+						rb
+				) {
+					if (
+						blocker !== p &&
+						Math.random() <
+							runEffects
+								.extraRbBlockChance
+					) {
+						addBlockAttempt(
+							blocker,
+							"Other",
+							0.6,
+						);
+					}
+				}
+			}
+		}
+
+		const qb =
+			this.getTopPlayerOnField(
+				o,
+				"QB",
+			);
+
+		this.playByPlay.logEvent(
+			{
+				type:
+					"handoff",
+				clock:
+					this.clock,
+				t: o,
+				names:
+					p === qb
+						? [
+								qb.name,
+							]
+						: [
+								qb.name,
+								p.name,
+							],
+			},
+		);
+
+		const scrambleModifier =
+			qbScramble
+				? 3
+				: 1;
+
+		const baseMeanYds =
+			helpers.bound(
+				(scrambleModifier *
+					(3.5 *
+						0.5 *
+						(p
+							.compositeRating
+							.rushing +
+							this.team[
+								o
+							]
+								.compositeRating
+								.runBlocking))) /
+					this.team[d]
+						.compositeRating
+						.runStopping,
+				-5,
+				15,
+			);
+
+		const meanYds =
+			runEffects
+				? helpers.bound(
+						baseMeanYds *
+							runEffects
+								.meanMultiplier,
+						runEffects
+							.minYds,
+						runEffects
+							.maxYds,
+					)
+				: baseMeanYds;
+
+		const spreadYds =
+			runEffects
+				? runEffects
+						.spreadYds
+				: 6;
+
+		const minYds =
+			runEffects
+				? runEffects
+						.minYds
+				: -5;
+
+		const maxYds =
+			runEffects
+				? runEffects
+						.maxYds
+				: 15;
+
+		let ydsRaw =
+			Math.round(
+				truncGauss(
+					meanYds,
+					spreadYds,
+					minYds,
+					maxYds,
+				),
+			);
+
+		const explosiveChance =
+			runEffects
+				? runEffects
+						.explosiveChance
+				: 0.01;
+
+		const explosiveMax =
+			runEffects
+				? runEffects
+						.explosiveMax
+				: 109;
+
+		if (
+			Math.random() <
+			explosiveChance
+		) {
+			ydsRaw +=
+				randInt(
+					0,
+					explosiveMax,
+				);
+		}
+
+		if (
+			ydsRaw < 0
+		) {
+			ydsRaw +=
+				randInt(
+					0,
+					5,
+				);
+		}
+
+		ydsRaw =
+			Math.round(
+				ydsRaw *
+					g.get(
+						"rushYdsFactor",
+					),
+			);
+
+		const yds =
+			this.currentPlay
+				.boundedYds(
+					ydsRaw,
+				);
+
+		const dt =
+			randInt(
+				runEffects
+					?.clockMin ??
+					2,
+				runEffects
+					?.clockMax ??
+					4,
+			) +
+			Math.abs(
+				yds,
+			) /
+				10;
+
+		this.checkPenalties(
+			"run",
+			{
+				ballCarrier: p,
+				playYds: yds,
+			},
+		);
+
+		const {
+			td,
+			safety,
+		} =
+			this.currentPlay.addEvent(
+				{
+					type: "rus",
+					p,
+					yds,
+					rbw,
+				},
+			);
+
+		if (td) {
+			this.currentPlay
+				.addEvent(
+					{
+						type:
+							"rusTD",
+						p,
+					},
+				);
+		} else if (safety) {
+			this.doSafety();
+		} else {
+			this.doTackle(
+				{
+					ydsFromScrimmage:
+						yds,
+				},
+			);
+		}
+
+		this.playByPlay.logEvent(
+			{
+				type: "run",
+				clock:
+					this.clock,
+				names: [
+					p.name,
+				],
+				totalRusTD:
+					this
+						.allStarGame
+						? undefined
+						: p
+								.seasonStats[
+								"rusTD"
+							] +
+							p.stat[
+								"rusTD"
+							],
+				safety,
+				t: o,
+				td,
+				twoPointConversionTeam:
+					this
+						.twoPointConversionTeam,
+				yds,
+			},
+		);
+
+		if (
+			!td &&
+			!safety &&
+			Math.random() <
+				this.probFumble(
+					p,
+				)
+		) {
+			this.awaitingAfterTouchdown =
+				false;
+
+			return (
+				dt +
+				this.doFumble(
+					p,
+					0,
+				)
+			);
+		}
+
+		return dt;
 	}
 
 	probSack(
