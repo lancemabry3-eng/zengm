@@ -1790,3 +1790,347 @@ export const getRunBlockingMatchups = (
 		getRunStopMatchupStrength,
 	);
 };
+
+export type RunBlockingPlan = {
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>;
+	comboAssignments: Map<
+		PlayerGameSim,
+		PlayerGameSim[]
+	>;
+};
+
+const getRunBlockingNeedScore = (
+	blocker: PlayerGameSim,
+	defender: PlayerGameSim,
+	slotIndex: number,
+	concept: RunConcept,
+): number => {
+	const defenderStrength =
+		getRunStopMatchupStrength(
+			defender,
+			slotIndex,
+		);
+
+	const blockerStrength =
+		Math.max(
+			0.05,
+			blocker
+				.compositeRating
+				.runBlocking,
+		);
+
+	const laneWeight =
+		Math.max(
+			0.25,
+			getRunBlockSlotWeight(
+				concept,
+				slotIndex,
+			),
+		);
+
+	return (
+		(defenderStrength /
+			blockerStrength) *
+		laneWeight
+	);
+};
+
+const getRunComboConceptFactor = (
+	concept: RunConcept,
+): number => {
+	if (
+		concept === "INSIDE_ZONE" ||
+		concept === "POWER" ||
+		concept === "QB_POWER"
+	) {
+		return 1;
+	}
+
+	if (concept === "COUNTER") {
+		return 0.92;
+	}
+
+	if (concept === "OUTSIDE_ZONE") {
+		return 0.85;
+	}
+
+	if (concept === "READ_OPTION") {
+		return 0.8;
+	}
+
+	if (concept === "JET_SWEEP") {
+		return 0.72;
+	}
+
+	return 0.6;
+};
+
+export const getRunBlockingComboHelpFactor = (
+	helper: PlayerGameSim,
+	concept: RunConcept,
+): number => {
+	const rawBlocking =
+		Math.max(
+			0.05,
+			helper
+				.compositeRating
+				.runBlocking,
+		);
+
+	const olOvr =
+		Math.max(
+			0,
+			helper.ovrs.OL ??
+				0,
+		) /
+		100;
+
+	const helperSkill =
+		olOvr > 0
+			? rawBlocking *
+					0.7 +
+				olOvr *
+					0.3
+			: rawBlocking;
+
+	const conceptFactor =
+		getRunComboConceptFactor(
+			concept,
+		);
+
+	return Math.min(
+		0.14,
+		Math.max(
+			0.025,
+			(
+				0.025 +
+				0.115 *
+					helperSkill
+			) *
+				conceptFactor,
+		),
+	);
+};
+
+const buildRunBlockingComboAssignments = (
+	offense: PlayersOnField,
+	matchups: Map<
+		PlayerGameSim,
+		PlayerGameSim
+	>,
+	concept: RunConcept,
+): Map<
+	PlayerGameSim,
+	PlayerGameSim[]
+> => {
+	const assignments =
+		new Map<
+			PlayerGameSim,
+			PlayerGameSim[]
+		>();
+
+	const ol =
+		offense.OL ?? [];
+
+	if (ol.length < 2) {
+		return assignments;
+	}
+
+	type Candidate = {
+		target: PlayerGameSim;
+		helper: PlayerGameSim;
+		score: number;
+	};
+
+	const candidates:
+		Candidate[] = [];
+
+	for (
+		let leftSlot = 0;
+		leftSlot <
+		ol.length - 1;
+		leftSlot++
+	) {
+		const rightSlot =
+			leftSlot + 1;
+
+		const left =
+			ol[leftSlot];
+
+		const right =
+			ol[rightSlot];
+
+		if (!left || !right) {
+			continue;
+		}
+
+		const leftDefender =
+			matchups.get(
+				left,
+			);
+
+		const rightDefender =
+			matchups.get(
+				right,
+			);
+
+		if (
+			!leftDefender ||
+			!rightDefender
+		) {
+			continue;
+		}
+
+		const leftNeed =
+			getRunBlockingNeedScore(
+				left,
+				leftDefender,
+				leftSlot,
+				concept,
+			);
+
+		const rightNeed =
+			getRunBlockingNeedScore(
+				right,
+				rightDefender,
+				rightSlot,
+				concept,
+			);
+
+		const target =
+			leftNeed >=
+			rightNeed
+				? left
+				: right;
+
+		const helper =
+			target === left
+				? right
+				: left;
+
+		const targetNeed =
+			Math.max(
+				leftNeed,
+				rightNeed,
+			);
+
+		const helperNeed =
+			Math.min(
+				leftNeed,
+				rightNeed,
+			);
+
+		const needGap =
+			targetNeed -
+			helperNeed;
+
+		if (
+			needGap < 0.05 &&
+			targetNeed < 1
+		) {
+			continue;
+		}
+
+		const targetSlot =
+			target === left
+				? leftSlot
+				: rightSlot;
+
+		const laneWeight =
+			getRunBlockSlotWeight(
+				concept,
+				targetSlot,
+			);
+
+		const score =
+			targetNeed +
+			needGap *
+				0.75 +
+			laneWeight *
+				0.2;
+
+		candidates.push({
+			target,
+			helper,
+			score,
+		});
+	}
+
+	candidates.sort(
+		(a, b) =>
+			b.score -
+			a.score,
+	);
+
+	const engaged =
+		new Set<
+			PlayerGameSim
+		>();
+
+	for (
+		const candidate of
+			candidates
+	) {
+		if (
+			engaged.has(
+				candidate.target,
+			) ||
+			engaged.has(
+				candidate.helper,
+			)
+		) {
+			continue;
+		}
+
+		assignments.set(
+			candidate.target,
+			[
+				candidate.helper,
+			],
+		);
+
+		engaged.add(
+			candidate.target,
+		);
+
+		engaged.add(
+			candidate.helper,
+		);
+
+		if (
+			assignments.size >=
+			2
+		) {
+			break;
+		}
+	}
+
+	return assignments;
+};
+
+export const getRunBlockingPlan = (
+	offense: PlayersOnField,
+	defense: PlayersOnField,
+	concept: RunConcept,
+): RunBlockingPlan => {
+	const matchups =
+		getRunBlockingMatchups(
+			offense,
+			defense,
+		);
+
+	const comboAssignments =
+		buildRunBlockingComboAssignments(
+			offense,
+			matchups,
+			concept,
+		);
+
+	return {
+		matchups,
+		comboAssignments,
+	};
+};
