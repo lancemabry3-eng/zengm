@@ -8,8 +8,9 @@ import GameSimBasketball from "./GameSim.basketball/index.ts";
 import formations from "./GameSim.football/formations.ts";
 import {
 	getPassPressureLevel,
-	getPassProtectionMatchups,
+	getPassRushFreeRusherStrength,
 	getPassRushMatchupStrength,
+	getPassRushPlan,
 	getRunBlockingMatchups,
 	getRunBlockSlotWeight,
 	getRunDisruptionLevel,
@@ -1776,6 +1777,9 @@ const getDefensiveScrambleYardsMultiplier = (
 class GameSimFootballRealism extends GameSimFootball {
 	currentPassPressureLevel = 0;
 
+	currentFreePassRushers:
+		PlayerGameSim[] = [];
+
 	currentPassProtectionMatchups:
 		| Map<PlayerGameSim, PlayerGameSim>
 		| undefined;
@@ -1812,6 +1816,9 @@ class GameSimFootballRealism extends GameSimFootball {
 
 		this.currentPassPressureLevel =
 			0;
+
+		this.currentFreePassRushers =
+			[];
 
 		this.currentPassProtectionMatchups =
 			undefined;
@@ -3247,24 +3254,33 @@ class GameSimFootballRealism extends GameSimFootball {
 				o
 			].OL ?? [];
 
-		const failedOlBlocks =
+		const failedBlocks =
 			Array.from(
 				pbw.entries(),
 			).filter(
 				([
 					,
 					{
-						type,
 						won,
 					},
 				]) =>
-					type ===
-						"OL" &&
 					!won,
 			);
 
+		const failedOlBlocks =
+			failedBlocks.filter(
+				([
+					,
+					{
+						type,
+					},
+				]) =>
+					type ===
+					"OL",
+			);
+
 		const failedMatchups =
-			failedOlBlocks.flatMap(
+			failedBlocks.flatMap(
 				([
 					blocker,
 				]) => {
@@ -3285,19 +3301,24 @@ class GameSimFootballRealism extends GameSimFootball {
 						);
 
 					const strength =
-						getPassRushMatchupStrength(
-							rusher,
-							slotIndex >=
-								0
-								? slotIndex
-								: 2,
-						);
+						slotIndex >=
+						0
+							? getPassRushMatchupStrength(
+									rusher,
+									slotIndex,
+								)
+							: getPassRushFreeRusherStrength(
+									rusher,
+								);
 
-					const edgeFactor =
+					const matchupFactor =
 						slotIndex === 0 ||
 						slotIndex === 4
 							? 1.15
-							: 1;
+							: slotIndex <
+								  0
+								? 1.2
+								: 1;
 
 					return [
 						{
@@ -3308,7 +3329,7 @@ class GameSimFootballRealism extends GameSimFootball {
 									0.05,
 									strength,
 								) *
-								edgeFactor,
+								matchupFactor,
 						},
 					];
 				},
@@ -3333,6 +3354,24 @@ class GameSimFootballRealism extends GameSimFootball {
 			| undefined;
 
 		if (
+			this
+				.currentFreePassRushers
+				.length >
+				0 &&
+			Math.random() <
+				0.88
+		) {
+			p =
+				choice(
+					this
+						.currentFreePassRushers,
+					(rusher) =>
+						getPassRushFreeRusherStrength(
+							rusher,
+						) **
+						2,
+				);
+		} else if (
 			failedMatchups.length >
 				0 &&
 			Math.random() <
@@ -3348,8 +3387,15 @@ class GameSimFootballRealism extends GameSimFootball {
 				);
 
 			p = matchup.rusher;
-			sackAllowedBlocker =
-				matchup.blocker;
+
+			if (
+				ol.includes(
+					matchup.blocker,
+				)
+			) {
+				sackAllowedBlocker =
+					matchup.blocker;
+			}
 		} else {
 			p =
 				this.pickPlayer(
@@ -3513,12 +3559,45 @@ class GameSimFootballRealism extends GameSimFootball {
 				current.concept,
 			);
 
+		let freeRusherSackBoost =
+			0;
+
+		for (
+			const rusher of
+				this
+					.currentFreePassRushers
+		) {
+			const strength =
+				getPassRushFreeRusherStrength(
+					rusher,
+				);
+
+			const individualBoost =
+				helpers.bound(
+					0.035 +
+						0.065 *
+							strength,
+					0.035,
+					0.1,
+				);
+
+			freeRusherSackBoost =
+				1 -
+				(1 -
+					freeRusherSackBoost) *
+					(1 -
+						individualBoost);
+		}
+
 		return helpers.bound(
 			base *
 				effects
 					.sackMultiplier *
 				defensiveEffects
-					.sackMultiplier,
+					.sackMultiplier +
+				freeRusherSackBoost *
+					effects
+						.sackMultiplier,
 			0,
 			0.5,
 		);
@@ -3753,15 +3832,36 @@ class GameSimFootballRealism extends GameSimFootball {
 				}
 			>();
 
-		const passProtectionMatchups =
-			getPassProtectionMatchups(
+		const passRushPlan =
+			getPassRushPlan(
 				this.playersOnField[
 					o
 				],
 				this.playersOnField[
 					d
 				],
+				this
+					.currentDefensivePlayConcept ??
+					"BASE",
 			);
+
+		const passProtectionMatchups =
+			passRushPlan.matchups;
+
+		const unaccountedExtraRushers =
+			passRushPlan
+				.extraRushers
+				.slice();
+
+		unaccountedExtraRushers.sort(
+			(a, b) =>
+				getPassRushFreeRusherStrength(
+					b,
+				) -
+				getPassRushFreeRusherStrength(
+					a,
+				),
+		);
 
 		this.currentPassProtectionMatchups =
 			passProtectionMatchups;
@@ -3848,13 +3948,15 @@ class GameSimFootballRealism extends GameSimFootball {
 						blocker,
 					);
 
+				if (!defender) {
+					continue;
+				}
+
 				const matchupStrength =
-					defender
-						? getPassRushMatchupStrength(
-								defender,
-								i,
-							)
-						: undefined;
+					getPassRushMatchupStrength(
+						defender,
+						i,
+					);
 
 				addBlockAttempt(
 					blocker,
@@ -3866,6 +3968,37 @@ class GameSimFootballRealism extends GameSimFootball {
 				);
 			}
 		}
+
+		const addExtraProtectionAttempt = (
+			p: PlayerGameSim,
+			baselineRatio:
+				number,
+		) => {
+			const extraRusher =
+				unaccountedExtraRushers.shift();
+
+			if (extraRusher) {
+				passProtectionMatchups.set(
+					p,
+					extraRusher,
+				);
+
+				addBlockAttempt(
+					p,
+					"Other",
+					baselineRatio,
+					getPassRushFreeRusherStrength(
+						extraRusher,
+					),
+				);
+			} else {
+				addBlockAttempt(
+					p,
+					"Other",
+					baselineRatio,
+				);
+			}
+		};
 
 		const te =
 			this.playersOnField[
@@ -3879,9 +4012,8 @@ class GameSimFootballRealism extends GameSimFootball {
 					conceptEffects
 						.teProtectionChance
 				) {
-					addBlockAttempt(
+					addExtraProtectionAttempt(
 						p,
-						"Other",
 						0.75,
 					);
 				}
@@ -3900,14 +4032,16 @@ class GameSimFootballRealism extends GameSimFootball {
 					conceptEffects
 						.rbProtectionChance
 				) {
-					addBlockAttempt(
+					addExtraProtectionAttempt(
 						p,
-						"Other",
 						0.5,
 					);
 				}
 			}
 		}
+
+		this.currentFreePassRushers =
+			unaccountedExtraRushers;
 
 		const qb =
 			this.getTopPlayerOnField(
@@ -3915,7 +4049,7 @@ class GameSimFootballRealism extends GameSimFootball {
 				"QB",
 			);
 
-		this.currentPassPressureLevel =
+		const blockedPressure =
 			getPassPressureLevel(
 				this.playersOnField[
 					o
@@ -3926,6 +4060,47 @@ class GameSimFootballRealism extends GameSimFootball {
 					d
 				].compositeRating
 					.passRushing,
+			);
+
+		let freeRusherPressure =
+			0;
+
+		for (
+			const rusher of
+				this
+					.currentFreePassRushers
+		) {
+			const strength =
+				getPassRushFreeRusherStrength(
+					rusher,
+				);
+
+			const individualPressure =
+				helpers.bound(
+					0.32 +
+						0.38 *
+							strength,
+					0.32,
+					0.7,
+				);
+
+			freeRusherPressure =
+				1 -
+				(1 -
+					freeRusherPressure) *
+					(1 -
+						individualPressure);
+		}
+
+		this.currentPassPressureLevel =
+			helpers.bound(
+				1 -
+					(1 -
+						blockedPressure) *
+						(1 -
+							freeRusherPressure),
+				0,
+				1,
 			);
 
 		const passPressureEffects =
